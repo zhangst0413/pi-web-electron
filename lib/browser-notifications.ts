@@ -1,3 +1,4 @@
+import { getDesktopBridge } from "./desktop-bridge";
 import { isBlockingExtensionUiRequest } from "./extension-ui-queue";
 import type { BlockingExtensionUiRequest, ExtensionUiRequest } from "./types";
 
@@ -13,6 +14,12 @@ interface ServiceWorkerRegistrationLike {
 export interface BrowserNotificationEnvironment {
   createWindowNotification: (title: string, options?: NotificationOptions) => WindowNotificationLike;
   getServiceWorkerRegistration: (() => Promise<ServiceWorkerRegistrationLike | undefined>) | null;
+  /**
+   * The desktop shell's bridge (lib/desktop-bridge.ts). Present only inside the
+   * Electron app, where it answers true once it has shown the notification and
+   * flashed the taskbar; the browser paths then stay out of the way.
+   */
+  notifyDesktop?: (payload: { title: string; body: string; sessionUrl: string }) => boolean;
 }
 
 export interface BrowserNotificationOptions {
@@ -23,7 +30,7 @@ export interface BrowserNotificationOptions {
   tag?: string;
 }
 
-export type NotificationDelivery = "service-worker" | "window" | null;
+export type NotificationDelivery = "desktop" | "service-worker" | "window" | null;
 
 type DocumentAttentionState = Pick<Document, "visibilityState" | "hasFocus">;
 
@@ -47,11 +54,24 @@ export function claimExtensionAttentionNotification(
 }
 
 function getBrowserEnvironment(): BrowserNotificationEnvironment {
+  const desktop = getDesktopBridge();
   return {
     createWindowNotification: (title, options) => new Notification(title, options),
     getServiceWorkerRegistration: "serviceWorker" in navigator
       ? () => navigator.serviceWorker.getRegistration()
       : null,
+    notifyDesktop: desktop
+      ? (payload) => {
+        // The main process owns the click (it focuses the window and opens the
+        // finished chat), so onClick stays unused here.
+        try {
+          desktop.notify(payload);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      : undefined,
   };
 }
 
@@ -59,6 +79,14 @@ export async function showBrowserNotification(
   options: BrowserNotificationOptions,
   environment: BrowserNotificationEnvironment = getBrowserEnvironment(),
 ): Promise<NotificationDelivery> {
+  let deliveredByDesktop = false;
+  try {
+    deliveredByDesktop = environment.notifyDesktop?.({ title: options.title, body: options.body, sessionUrl: options.sessionUrl }) === true;
+  } catch {
+    // A closed IPC channel falls back to the browser paths rather than losing the notice.
+  }
+  if (deliveredByDesktop) return "desktop";
+
   const notificationOptions: NotificationOptions = {
     body: options.body,
     ...(options.tag ? { tag: options.tag, renotify: true } : {}),

@@ -38,6 +38,7 @@ import {
   shouldShowBrowserNotification,
   showBrowserNotification,
 } from "@/lib/browser-notifications";
+import { getDesktopBridge } from "@/lib/desktop-bridge";
 import { setupPushSubscription } from "@/lib/push-client";
 import { startPageVisibilityTracking } from "@/lib/page-debug";
 import type { DebugClientSession } from "@/lib/debug-types";
@@ -1123,7 +1124,9 @@ export function AppShell() {
     body: string;
     tag?: string;
   }) => {
-    if (!("Notification" in window)) return;
+    // In the desktop shell the main process owns notifications, and the bridge
+    // needs no permission (electron/preload.js, lib/desktop-bridge.ts).
+    if (!getDesktopBridge() && !("Notification" in window)) return;
 
     const fire = () => {
       const sessionUrl = targetSession ? `/?session=${encodeURIComponent(targetSession.id)}` : "/";
@@ -1138,6 +1141,11 @@ export function AppShell() {
         },
       });
     };
+
+    if (getDesktopBridge()) {
+      fire();
+      return;
+    }
 
     if (Notification.permission === "granted") {
       fire();

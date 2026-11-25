@@ -2,6 +2,7 @@
   "name": "@agegr/pi-web",
   "version": "0.18.0",
   "description": "Web UI for the pi coding agent",
+  "author": "Pi Web",
   "homepage": "https://github.com/agegr/pi-web#readme",
   "repository": {
     "type": "git",
@@ -24,6 +25,7 @@
   "bin": {
     "pi-web": "bin/pi-web.js"
   },
+  "main": "electron/main.js",
   "files": [
     "bin",
     ".next",
@@ -41,6 +43,9 @@
     "build": "next build --webpack",
     "start": "next start -H 127.0.0.1 -p 30141",
     "start:lan": "next start -H 0.0.0.0 -p 30141",
+    "desktop": "node bin/ensure-electron.js && electron .",
+    "desktop:pack": "npm run build && node bin/desktop-build.js --dir",
+    "desktop:dist": "npm run build && node bin/desktop-build.js",
     "lint": "eslint .",
     "test:terminal": "node e2e/terminal.mjs",
     "test:e2e": "node e2e/run.mjs",
@@ -81,6 +86,8 @@
     "@types/semver": "7.8.0",
     "@types/web-push": "^3.6.4",
     "ansi_up": "^6.0.6",
+    "electron": "^45.5.0",
+    "electron-builder": "^26.18.0",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
     "jiti": "^2.7.0",
@@ -100,5 +107,9 @@
     "remark-math": "^6.0.0",
     "tailwindcss": "^4.2.2",
     "typescript": "^5"
+  },
+  "config": {
+    "electron_mirror": "https://npmmirror.com/mirrors/electron/",
+    "electron_builder_binaries_mirror": "https://npmmirror.com/mirrors/electron-builder-binaries/"
   }
 }

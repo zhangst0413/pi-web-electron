@@ -122,6 +122,20 @@ npx @agegr/pi-web@latest
 - **Git worktrees**: see [Worktrees in Pi Web](./docs/worktrees.md) for switcher visibility, worktree creation, and removal behavior.
 - **Integration hooks**: apps that embed Pi Web can replace the session row's context menu, and server-side pi extensions can keep a session from idle shutdown; see [Integration Hooks](./docs/integrations.md).
 
+## Desktop app (Electron)
+
+A thin Electron shell shows the same UI in a window, sends finished tasks to the OS notification center, flashes the taskbar, and keeps all its data beside the executable instead of on C:.
+
+```bash
+npm run desktop       # window over a local server (uses a build, else next dev)
+npm run desktop:pack  # next build + electron-builder --dir  → desktop-dist/win-unpacked
+npm run desktop:dist  # next build + electron-builder         → NSIS installer
+```
+
+Downloads use the npmmirror mirrors by default (`electron/mirrors.js`); override with `ELECTRON_MIRROR` and `ELECTRON_BUILDER_BINARIES_MIRROR`.
+
+Data lands in `<install dir>/pi-web-data/` (`agent/` for pi's sessions and settings, `chromium/` for the window's profile, `logs/` for the server output); `PI_WEB_DESKTOP_DATA_DIR` overrides it. See [desktop.md](./docs/agents/desktop.md) for ports, dev modes and packaging details.
+
 ## Development
 
 ```bash
@@ -148,6 +162,7 @@ Contributor guides: [Internationalization](./docs/i18n.md) and [Release process]
 ```text
 app/             Next.js UI and API routes
 components/      React UI components
+electron/        Electron desktop shell (main, preload, server launcher, data folder)
 hooks/           Client state and interaction hooks
 lib/             Session, agent, model, file, Git, and security logic
 public/          Static assets and PWA files
