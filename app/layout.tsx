@@ -49,10 +49,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#1a1a1a" },
-  ],
+  // Pi Web is dark only; the browser chrome follows that palette.
+  themeColor: "#1a1a1a",
 };
 
 export default function RootLayout({
