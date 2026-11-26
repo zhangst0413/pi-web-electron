@@ -1,12 +1,12 @@
 /**
  * Deleting session files: DELETE /api/sessions/[id] (a row's Delete) and
  * POST /api/sessions/delete (a project group's "Delete all sessions"). Each
- * named session goes with every subagent session below it, persisted or
- * live. A session left behind whose header names a deleted one as its parent
- * is re-pointed at the nearest ancestor still there (`parentSession` is
- * display metadata only, so the rewrite is safe). Open wrappers are shut down,
- * subagents before their parents, before the files go; then the pins and
- * archive times of every deleted id are forgotten.
+ * named session goes with every side chat below it, persisted or live. A
+ * session left behind whose header names a deleted one as its parent is
+ * re-pointed at the nearest ancestor still there (`parentSession` is display
+ * metadata only, so the rewrite is safe). Open wrappers are shut down, side
+ * chats before their parents, before the files go; then the pins and archive
+ * times of every deleted id are forgotten.
  *
  * One call lists the catalogue and reads each folder once, however many
  * sessions it deletes: a project's hundreds of sessions deleted one request
@@ -16,7 +16,7 @@
 import { readdirSync, readFileSync, unlinkSync } from "fs";
 import { dirname, join } from "path";
 import { writeSessionFileAtomicSync } from "./atomic-file";
-import { abortSubagent, getRpcSession, getRpcSessionInfos, getRunningRpcSessionIds } from "./rpc-manager";
+import { getRpcSession, getRpcSessionInfos, getRunningRpcSessionIds } from "./rpc-manager";
 import {
   invalidateSessionListCache,
   invalidateSessionManagerCache,
@@ -28,7 +28,6 @@ import {
 } from "./session-reader";
 import { sessionPathKey } from "./session-path";
 import { forgetSessionUiState } from "./session-ui-state";
-import { readSubagentRun, SUBAGENT_META_TYPE } from "./subagents";
 import { readSideRelation } from "./side-session";
 import type { SessionEntry } from "./types";
 
@@ -36,7 +35,7 @@ import type { SessionEntry } from "./types";
 export const MAX_SESSION_DELETE_IDS = 500;
 
 export interface SessionDeleteResult {
-  /** Every session removed: the named ones and the subagent sessions below them. */
+  /** Every session removed: the named ones and the side chats below them. */
   deleted: string[];
   /** Named ids with neither a file nor a cached path. */
   missing: string[];
@@ -51,9 +50,9 @@ function addChild(childrenByParent: Map<string, string[]>, parentId: string, chi
 }
 
 /**
- * Deletes `ids` and their subagent sessions. With `keepRunning`, a named
- * session is left alone when it or a subagent below it runs: a bulk delete
- * the user confirmed a moment ago must not stop a run that started since.
+ * Deletes `ids` and their side chats. With `keepRunning`, a named session is
+ * left alone when it or a side chat below it runs: a bulk delete the user
+ * confirmed a moment ago must not stop a run that started since.
  */
 export async function deleteSessions(
   ids: readonly string[],
@@ -83,14 +82,14 @@ export async function deleteSessions(
 
   const targetPathKeys = new Set([...targets.values()].map((path) => sessionPathKey(path)));
   const targetDirs = new Set([...targets.values()].map((path) => dirname(path)));
-  // Deleting a session also deletes every persisted or live subagent below it.
+  // Deleting a session also deletes every persisted or live side chat below it.
   const sessions = mergeSessionLists(
     await listAllSessions({ force: true }),
     getRpcSessionInfos({ includeTransient: true }),
   );
   const childrenByParent = new Map<string, string[]>();
   for (const session of sessions) {
-    if (session.relation?.kind === "subagent" || session.relation?.kind === "side") {
+    if (session.relation?.kind === "side") {
       addChild(childrenByParent, session.relation.parentSessionId, session.id);
     }
   }
@@ -108,12 +107,6 @@ export async function deleteSessions(
           const entries = lines.slice(1).flatMap((line) => {
             try { return [JSON.parse(line) as SessionEntry]; } catch { return []; }
           });
-          const subagent = readSubagentRun(entries, header.id, childPath);
-          if (subagent) {
-            addChild(childrenByParent, subagent.parentSessionId, header.id);
-            sessionPaths.set(header.id, childPath);
-            continue;
-          }
           const side = readSideRelation(entries);
           if (side) {
             addChild(childrenByParent, side.parentSessionId, header.id);
@@ -124,7 +117,7 @@ export async function deleteSessions(
     } catch { /* skip if dir unreadable */ }
   }
 
-  // Each named session with the subagents below it, children before their
+  // Each named session with the side chats below it, children before their
   // parent: wrappers are shut down in this order.
   const runningIds = options.keepRunning ? new Set(getRunningRpcSessionIds()) : new Set<string>();
   const deletedSessionIds = new Set<string>();
@@ -168,7 +161,7 @@ export async function deleteSessions(
       seen.add(key);
       if (!parentPathByKey.has(key)) {
         let parent: string | undefined;
-        // A subagent's file may be gone already; it then re-attaches nothing.
+        // A side chat's file may be gone already; it then re-attaches nothing.
         try { parent = readSessionHeader(deletedPath)?.parentSession; } catch { parent = undefined; }
         parentPathByKey.set(key, parent);
       }
@@ -190,45 +183,12 @@ export async function deleteSessions(
             const childParent = readSessionHeader(childPath)?.parentSession;
             if (!childParent || !deletedPathKeys.has(sessionPathKey(childParent))) continue;
             const parentSessionPath = survivingParent(childParent);
-            let parentSessionId: string | undefined;
-            if (parentSessionPath) {
-              try {
-                // The parent may have been deleted or moved already; treat it as absent.
-                parentSessionId = readSessionHeader(parentSessionPath)?.id;
-              } catch {
-                parentSessionId = undefined;
-              }
-            }
             const lines = readFileSync(childPath, "utf8").split("\n");
             const header = JSON.parse(lines[0]) as { type?: string; parentSession?: string };
             if (header.type !== "session") continue;
             // Rewrite header with new parentSession
             header.parentSession = parentSessionPath;
             lines[0] = JSON.stringify(header);
-            if (parentSessionPath && parentSessionId) {
-              for (let index = 1; index < lines.length; index += 1) {
-                let entry: { type?: string; customType?: string; data?: unknown };
-                try {
-                  entry = JSON.parse(lines[index]);
-                } catch {
-                  continue;
-                }
-                if (
-                  entry.type !== "custom"
-                  || entry.customType !== SUBAGENT_META_TYPE
-                  || typeof entry.data !== "object"
-                  || entry.data === null
-                  || Array.isArray(entry.data)
-                ) continue;
-                entry.data = {
-                  ...entry.data,
-                  parentSessionId,
-                  parentSessionPath,
-                };
-                lines[index] = JSON.stringify(entry);
-                break;
-              }
-            }
             // Atomic: a process killed mid-write must not leave the child truncated.
             writeSessionFileAtomicSync(childPath, lines.join("\n"));
           } catch { /* skip malformed */ }
@@ -238,7 +198,6 @@ export async function deleteSessions(
   }
 
   for (const deletedId of deletedSessionIds) {
-    try { await abortSubagent(deletedId); } catch { /* ordinary session, idle or completed */ }
     await getRpcSession(deletedId)?.shutdown();
   }
   for (const [deletedId, deletedPath] of deletedPaths) {

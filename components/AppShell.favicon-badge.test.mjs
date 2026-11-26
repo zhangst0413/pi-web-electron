@@ -56,12 +56,10 @@ test("a selected session that finishes while the tab is hidden badges the favico
   assert.deepEqual([...seen.hiddenFinishedSessionIds], []);
 });
 
-test("a stopped run, an unfinished task, a subagent or a side chat never badges (#1484)", () => {
+test("a stopped run or a side chat never badges (#1484)", () => {
   const selectedSession = { id: "open", name: "open" };
   for (const [label, end, session] of [
     ["aborted", { aborted: true }, selectedSession],
-    ["subagents active", { aborted: false, subagentsActive: true }, selectedSession],
-    ["subagent session", { aborted: false }, { ...selectedSession, relation: { kind: "subagent" } }],
     ["side chat", { aborted: false }, { ...selectedSession, relation: { kind: "side", parentSessionId: "parent" } }],
   ]) {
     const { hiddenFinishedSessionIds } = runHandleAgentEnd({ end, selectedSession: session, attention: true });

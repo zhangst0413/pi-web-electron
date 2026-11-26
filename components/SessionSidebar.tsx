@@ -568,8 +568,6 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onSelectSid
   const [fileManagerError, setFileManagerError] = useState<string | null>(null);
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
   const [awaitingInputSessionIds, setAwaitingInputSessionIds] = useState<Set<string>>(() => new Set());
-  // Sessions whose subagents can still report back with a run there: not done yet (#1434).
-  const [subagentsActiveSessionIds, setSubagentsActiveSessionIds] = useState<Set<string>>(() => new Set());
   // This browser's unread markers, each dated on the server's clock (lib/unread-markers.ts).
   const [unreadMarks, setUnreadMarks] = useState<Map<string, number>>(() => loadUnreadMarks());
   const previousRunningSessionIdsRef = useRef<Set<string>>(new Set());
@@ -720,8 +718,8 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onSelectSid
 
   // What the read triggers below read when they fire: an input, a poll's
   // answer, a selection; never a closure from an older render.
-  const readContextRef = useRef({ allSessions, readAt, unreadMarks, runningSessionIds, subagentsActiveSessionIds });
-  readContextRef.current = { allSessions, readAt, unreadMarks, runningSessionIds, subagentsActiveSessionIds };
+  const readContextRef = useRef({ allSessions, readAt, unreadMarks, runningSessionIds });
+  readContextRef.current = { allSessions, readAt, unreadMarks, runningSessionIds };
 
   // Records on the server that someone looking at a page has seen `ids`. In
   // the background: a refused write shows no toast, and the next look tries again.
@@ -743,7 +741,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onSelectSid
   // its own, below) and there is something new to read.
   const readIfSeen = useCallback((id: string, marked: boolean) => {
     const context = readContextRef.current;
-    if (context.runningSessionIds.has(id) || context.subagentsActiveSessionIds.has(id)) return;
+    if (context.runningSessionIds.has(id)) return;
     if (!isPageAttended()) {
       // Opened with nobody at the page (a tab the browser restored): the
       // marker this page held goes, but the read waits for someone to look.
@@ -880,7 +878,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onSelectSid
         setAwaitingInputSessionIds((previous) => sameIdsOr(previous, data.awaitingInputSessionIds ?? []));
       }
       // Drop markers for deleted sessions and for hidden family members
-      // (subagents, side chats), whose completion is intentionally silent
+      // (side chats), whose completion is intentionally silent
       // even if an older client marked them unread.
       const unreadEligibleIds = new Set(
         data.sessions
@@ -1051,7 +1049,6 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onSelectSid
           runningSessionIds?: string[];
           awaitingInputSessionIds?: string[];
           completionNotificationSuppressedSessionIds?: string[];
-          subagentsActiveSessionIds?: string[];
           sessionUiStateRevision?: number | null;
           serverNow?: number;
         };
@@ -1066,7 +1063,6 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onSelectSid
         );
         setRunningSessionIds((previous) => sameIdsOr(previous, data.runningSessionIds ?? []));
         setAwaitingInputSessionIds((previous) => sameIdsOr(previous, data.awaitingInputSessionIds ?? []));
-        setSubagentsActiveSessionIds((previous) => sameIdsOr(previous, data.subagentsActiveSessionIds ?? []));
         // Pins and archive changed in another window: reload them.
         noteUiRevision(data.sessionUiStateRevision);
         // The first summary may still be in flight (a cold disk): its version is
@@ -1130,20 +1126,19 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onSelectSid
   useEffect(() => {
     const previous = previousRunningSessionIdsRef.current;
     const completedInBackground = [...previous].filter((id) => !runningSessionIds.has(id) && id !== selectedSessionId);
-    // A session is done once it neither runs nor waits for a subagent's report, which starts
-    // another run there: its first run's end is not the task's (#1434). Leaving that set is the
-    // completion, so a last run too short for any poll to see still counts.
-    const active = new Set([...runningSessionIds, ...subagentsActiveSessionIds]);
+    // Leaving the running set is the completion, so a last run too short for
+    // any poll to see still counts.
+    const active = new Set(runningSessionIds);
     const finishedInBackground = [...previousActiveSessionIdsRef.current].filter((id) => !active.has(id) && id !== selectedSessionId);
-    // Subagent runs and side chats finish silently: a side chat is an aside
-    // the user drives, not a background task that owes a notification.
-    const knownSubagentIds = new Set(
+    // Side chats finish silently: a side chat is an aside the user drives, not
+    // a background task that owes a notification.
+    const knownHiddenIds = new Set(
       allSessions
         .filter((session) => isHiddenRelation(session.relation))
         .map((session) => session.id),
     );
     const completedWithNotifications = finishedInBackground.filter(
-      (id) => !previousSuppressedCompletionSessionIdsRef.current.has(id) && !knownSubagentIds.has(id),
+      (id) => !previousSuppressedCompletionSessionIdsRef.current.has(id) && !knownHiddenIds.has(id),
     );
     const newlyRunning = [...runningSessionIds].filter((id) => !previous.has(id));
 
@@ -1186,12 +1181,11 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onSelectSid
     const previousSuppressed = previousSuppressedCompletionSessionIdsRef.current;
     previousSuppressedCompletionSessionIdsRef.current = new Set(
       [...active].filter(
-        (id) => currentSuppressedCompletionSessionIdsRef.current.has(id) || knownSubagentIds.has(id)
-          // A subagent waiting for its own subagents is no longer listed as suppressed.
+        (id) => currentSuppressedCompletionSessionIdsRef.current.has(id) || knownHiddenIds.has(id)
           || (previousSuppressed.has(id) && !runningSessionIds.has(id)),
       ),
     );
-  }, [runningSessionIds, subagentsActiveSessionIds, selectedSessionId, allSessions, loadSessions, onBackgroundTaskDone, sendRead]);
+  }, [runningSessionIds, selectedSessionId, allSessions, loadSessions, onBackgroundTaskDone, sendRead]);
 
   // Opening a session reads it here, and everywhere once someone has looked.
   useEffect(() => {
@@ -1899,7 +1893,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onSelectSid
       if (read) {
         for (const id of familyIds(family)) next.delete(id);
       } else {
-        // Subagents never carry the marker (loadSessions prunes them).
+        // Side chats never carry the marker (loadSessions prunes them).
         next.set(family.root.id, markedAt);
       }
       return next;
@@ -2055,10 +2049,10 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onSelectSid
     if (session.transient) return;
     setConfirmDeleteRootId((current) => (current === session.id ? null : current));
     try {
-      // The server deletes the family's subagent sessions with it.
+      // The server deletes the family's side chats with it.
       const res = await fetch(`/api/sessions/${encodeURIComponent(session.id)}`, { method: "DELETE" });
       // Drafts are kept in this browser's storage: they go with their sessions.
-      if (res.ok) [session, ...family.subagents].forEach((member) => clearDraft(member.id));
+      if (res.ok) [session, ...family.members].forEach((member) => clearDraft(member.id));
       onSessionDeleted?.(session.id);
       void loadSessions();
     } catch {

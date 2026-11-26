@@ -33,20 +33,10 @@ function post(body, headers = JSON_HEADERS) {
   }));
 }
 
-/** A session file as pi writes it: header, then one exchange; a subagent's or a side chat's carries pi-web's meta entry. */
-async function writeSession(dir, name, { id, cwd, parentSession, subagentOf, sideOf }) {
+/** A session file as pi writes it: header, then one exchange; a side chat's carries pi-web's meta entry. */
+async function writeSession(dir, name, { id, cwd, parentSession, sideOf }) {
   const path = join(dir, `${name}.jsonl`);
   const lines = [{ type: "session", version: 3, id, timestamp: TIME, cwd, ...(parentSession ? { parentSession } : {}) }];
-  if (subagentOf) {
-    lines.push({
-      type: "custom",
-      customType: "pi-web:subagent",
-      id: `${id}-meta`,
-      parentId: null,
-      timestamp: TIME,
-      data: { version: 1, parentSessionId: subagentOf.id, parentSessionPath: subagentOf.path, profile: "Explore", description: "Look around" },
-    });
-  }
   if (sideOf) {
     lines.push({
       type: "custom",
@@ -88,13 +78,13 @@ async function scratchAgentDir(t) {
   return { dir, sessionsDir, ids };
 }
 
-test("deletes a project's sessions in one request, with their subagents, keeping a run and re-pointing what stays", async (t) => {
+test("deletes a project's sessions in one request, with their side chats, keeping a run and re-pointing what stays", async (t) => {
   const { sessionsDir, ids } = await scratchAgentDir(t);
   const cwd = "/work/alpha";
   const keepRoot = await writeSession(sessionsDir, "keep-root", { id: "keep-root", cwd });
   const a = await writeSession(sessionsDir, "a", { id: "del-a", cwd, parentSession: keepRoot });
   const b = await writeSession(sessionsDir, "b", { id: "del-b", cwd, parentSession: a });
-  const aSub = await writeSession(sessionsDir, "a-sub", { id: "del-a-sub", cwd, parentSession: a, subagentOf: { id: "del-a", path: a } });
+  const aSub = await writeSession(sessionsDir, "a-sub", { id: "del-a-sub", cwd, parentSession: a, sideOf: { id: "del-a", path: a } });
   // A fork of b that the confirmation did not count (another window made it):
   // it stays, re-pointed past b and a to the nearest ancestor left.
   const keepFork = await writeSession(sessionsDir, "keep-fork", { id: "keep-fork", cwd, parentSession: b });
@@ -167,8 +157,8 @@ test("what stays is re-pointed at its nearest ancestor left, or loses a parent n
   const middle = await writeSession(sessionsDir, "middle", { id: "keep-middle", cwd, parentSession: root });
   const child = await writeSession(sessionsDir, "child", { id: "del-child", cwd, parentSession: middle });
   const grandchild = await writeSession(sessionsDir, "grandchild", { id: "keep-grandchild", cwd, parentSession: child });
-  // A subagent of keep-middle whose header names the deleted child: its meta follows the header.
-  const sub = await writeSession(sessionsDir, "sub", { id: "keep-sub", cwd, parentSession: child, subagentOf: { id: "keep-middle", path: middle } });
+  // A side chat of keep-middle whose header names the deleted child: its meta follows the header.
+  const sub = await writeSession(sessionsDir, "sub", { id: "keep-sub", cwd, parentSession: child, sideOf: { id: "keep-middle", path: middle } });
   ids.push("del-root", "keep-middle", "del-child", "keep-grandchild", "keep-sub");
 
   const result = await (await post({ ids: ["del-root", "del-child"] })).json();
@@ -179,10 +169,9 @@ test("what stays is re-pointed at its nearest ancestor left, or loses a parent n
   // Nothing above the deleted root stays: the header loses its parent.
   assert.equal("parentSession" in lines(middle)[0], false);
   assert.equal(lines(grandchild)[0].parentSession, middle);
-  const [subHeader, subMeta, ...subRest] = lines(sub);
+  const [subHeader, ...subRest] = lines(sub);
   assert.equal(subHeader.parentSession, middle);
-  assert.deepEqual([subMeta.data.parentSessionId, subMeta.data.parentSessionPath], ["keep-middle", middle]);
-  assert.equal(subRest.length, 2, "the rest of the file is kept");
+  assert.equal(subRest.length, 3, "the rest of the file is kept");
 });
 
 test("a delete request must be a trusted JSON list of session ids, at most one part", async (t) => {

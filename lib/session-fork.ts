@@ -3,7 +3,6 @@ import { existsSync, readFileSync, statSync, writeFileSync } from "fs";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { forkSessionName, sessionDisplayTitle } from "./session-fork-name";
 import { scanSessionFileInfo } from "./session-list-scanner";
-import { readSubagentRun } from "./subagents";
 import { SIDE_SESSION_NAME } from "./session-family";
 import { createSessionToolSelectionEntry, readSessionToolSelection } from "./session-tool-selection";
 import { createSideBoundaryEntry, createSideMetadataEntry, readSideRelation } from "./side-session";
@@ -16,7 +15,7 @@ import type { SessionEntry } from "./types";
  * named: the source's title plus a short random suffix (session-fork-name.ts).
  */
 
-export type SessionForkRefusal = "not_found" | "unsaved" | "empty" | "subagent" | "side" | "cwd-invalid" | "cwd-exists";
+export type SessionForkRefusal = "not_found" | "unsaved" | "empty" | "side" | "cwd-invalid" | "cwd-exists";
 
 export class SessionForkError extends Error {
   constructor(readonly code: SessionForkRefusal, message: string) {
@@ -108,8 +107,8 @@ export function createSideSession(
  * `session_info` names, into a new session of `targetCwd`, filed under that
  * folder's session directory, header `parentSession` = the source. The source
  * stays as it was. Like the sidebar's Fork, it runs on disk with no runtime,
- * and refuses what that refuses: a subagent's or side chat's metadata would
- * fold the copy into a family it no longer belongs to. Offered only where pi
+ * and refuses what that refuses: a side chat's metadata would fold the copy
+ * into a family it no longer belongs to. Offered only where pi
  * offers it: a source whose own folder still exists is refused (`cwd-exists`).
  */
 export function forkSessionIntoCwd(sourcePath: string, targetCwd: string): { sessionId: string; path: string } {
@@ -128,9 +127,6 @@ export function forkSessionIntoCwd(sourcePath: string, targetCwd: string): { ses
     throw new SessionForkError("cwd-exists", `The session's folder still exists: ${sourceCwd}`);
   }
   const entries = source.getEntries() as unknown as SessionEntry[];
-  if (readSubagentRun(entries, "", sourcePath)) {
-    throw new SessionForkError("subagent", "A subagent session cannot be forked");
-  }
   if (readSideRelation(entries)) throw new SessionForkError("side", "A side chat cannot be forked");
   if (!entries.some((entry) => entry.type === "message")) {
     throw new SessionForkError("empty", "Nothing to fork: the session has no messages");
@@ -163,13 +159,9 @@ function copySessionBranch(
   }
 
   const branch = manager.getBranch(leafId);
-  // A copy carrying a subagent's metadata would be read as that subagent and
-  // folded, out of sight, into its parent's family.
-  if (readSubagentRun(branch as unknown as SessionEntry[], "", sourcePath)) {
-    throw new SessionForkError("subagent", "A subagent session cannot be forked");
-  }
-  // The same read for a side chat: forking it would leak its parent's context
-  // into a visible session (ADR 0007; promote is the intended path).
+  // A copy carrying a side chat's metadata would be folded, out of sight, into
+  // its parent's family: forking it would leak its parent's context into a
+  // visible session (ADR 0007; promote is the intended path).
   if (readSideRelation(branch as unknown as SessionEntry[])) {
     throw new SessionForkError("side", "A side chat cannot be forked");
   }

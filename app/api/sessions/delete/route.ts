@@ -5,7 +5,7 @@ import { NO_STORE, noStoreRefusal, readSessionIdsRequest } from "@/lib/session-i
 export const dynamic = "force-dynamic";
 
 // A project group's "Delete all sessions": the ids the sidebar showed in its
-// confirmation, each with the subagent sessions below it, in one pass over
+// confirmation, each with the side chats below it, in one pass over
 // the catalogue (lib/session-delete.ts). A session that started running since
 // is kept and reported, never stopped; an id already gone is reported too.
 

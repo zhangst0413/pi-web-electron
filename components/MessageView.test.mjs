@@ -480,60 +480,6 @@ test("a long or multi-line value stays inside the card", (t) => {
   assert.ok(textOf(html).includes("line 39"));
 });
 
-test("renders subagents as standard 次工具调用 with only an extra side-panel button", () => {
-  const block = {
-    type: "toolCall",
-    toolCallId: "call-agent-1",
-    toolName: "Agent",
-    input: {
-      subagent_type: "Explore",
-      prompt: "Find the parser",
-      description: "Find parser",
-    },
-  };
-  const result = {
-    role: "toolResult",
-    toolCallId: block.toolCallId,
-    content: [{ type: "text", text: "Parser is in lib/parser.ts" }],
-    details: {
-      kind: "pi-web-subagent",
-      sessionId: "child-session",
-      profile: "Explore",
-      description: "Find parser",
-      status: "completed",
-      runInBackground: false,
-      createdAt: "2026-01-01T00:00:00.000Z",
-    },
-  };
-  const html = renderMessage({
-    role: "assistant",
-    provider: "anthropic",
-    model: "claude-test",
-    content: [block],
-  }, {
-    toolResults: new Map([[block.toolCallId, result]]),
-    onOpenSubagent() {},
-  });
-
-  assert.match(html, /border:1px solid rgba\(34,197,94,0\.25\)/);
-  assert.match(html, />Agent</);
-  assert.match(html, />Explore</);
-  assert.match(html, /aria-label="在侧栏面板中查看子代理工作"/);
-  assert.doesNotMatch(html, />completed</);
-  assert.doesNotMatch(html, />Find parser</);
-
-  const ordinaryHtml = renderMessage({
-    role: "assistant",
-    provider: "anthropic",
-    model: "claude-test",
-    content: [{ ...block, toolCallId: "call-extension-1", toolName: "extension_tool" }],
-  }, {
-    toolResults: new Map(),
-    onOpenSubagent() {},
-  });
-  assert.doesNotMatch(ordinaryHtml, /在侧栏面板中查看子代理工作/);
-});
-
 test("a tool card shows the run time pi recorded, else the timestamps' difference, never a tiny one", () => {
   const block = { type: "toolCall", toolCallId: "call-duration-1", toolName: "bash", arguments: { command: "make" } };
   const message = { role: "assistant", provider: "anthropic", model: "claude-test", content: [block], timestamp: 1_000_000, durationMs: 4_000 };
@@ -1045,59 +991,6 @@ test("a codemode call with no script or streaming input falls back to a plain bo
   assert.match(otherHtml, /<table/);
   assert.match(otherHtml, />x<\/td>/);
   assert.doesNotMatch(textOf(otherHtml), /"script": "x"/);
-});
-
-test("labels an MCP call server/tool and indents a JSON result", (t) => {
-  const block = {
-    type: "toolCall",
-    toolCallId: "call-mcp-1",
-    toolName: "mcp__docs_v2__search",
-    input: { query: "codemode" },
-  };
-  setToolCallExpanded(block.toolCallId, true);
-  t.after(() => setToolCallExpanded(block.toolCallId, false));
-  const html = renderMessage({
-    role: "assistant",
-    provider: "anthropic",
-    model: "claude-test",
-    content: [block],
-  }, {
-    toolResults: new Map([[block.toolCallId, {
-      role: "toolResult",
-      toolCallId: block.toolCallId,
-      content: [{ type: "text", text: "{\"hits\":[{\"title\":\"代码模式\"}]}" }],
-      details: { server: "docs.v2", tool: "search" },
-    }]]),
-  });
-  const text = textOf(html);
-  assert.match(text, /docs\.v2\/search/);
-  assert.match(html, /title="mcp__docs_v2__search"/);
-  assert.match(text, /\{\n {2}"hits": \[\n {4}\{\n {6}"title": "代码模式"/);
-});
-
-test("keeps the registered name where no result names the server and tool", (t) => {
-  // Sanitizing maps docs.v2/search.pages and docs_v2/search_pages to one name, so it is not split.
-  const block = { type: "toolCall", toolCallId: "call-mcp-running", toolName: "mcp__docs_v2__search_pages", input: {} };
-  const running = textOf(renderMessage({
-    role: "assistant",
-    provider: "anthropic",
-    model: "claude-test",
-    content: [block],
-  }, { toolResults: new Map() }));
-  assert.match(running, /mcp__docs_v2__search_pages/);
-  assert.doesNotMatch(running, /docs_v2\//);
-
-  // A codemode script's calls carry only that name, which is also what the script calls.
-  const script = codemodeCall("call-codemode-mcp", "await tools.mcp__docs_v2__search_pages({})");
-  setToolCallExpanded(script.toolCallId, true);
-  t.after(() => setToolCallExpanded(script.toolCallId, false));
-  const html = renderCodemode(script, {
-    role: "toolResult",
-    toolCallId: script.toolCallId,
-    content: [{ type: "text", text: "Script completed\nWall time 0.1 seconds\nOutput:\n" }],
-    details: { calls: [{ id: "call-codemode-mcp/1", name: "mcp__docs_v2__search_pages", args: "{}", status: "ok" }] },
-  });
-  assert.match(textOf(html), /mcp__docs_v2__search_pages\{\}/);
 });
 
 test("collapses the compaction summary to its title and token count, as pi's TUI does (#1026)", () => {

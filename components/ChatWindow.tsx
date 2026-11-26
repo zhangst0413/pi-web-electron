@@ -35,7 +35,6 @@ import type { SessionStatsInfo } from "@/lib/pi-types";
 import type { DebugClientSession } from "@/lib/debug-types";
 import type { AppUpdateResponse } from "@/lib/api-types";
 import type { ToolEntry } from "@/lib/tool-presets";
-import type { SettingsSection } from "@/lib/settings-navigation";
 import { getTranscriptNotices, summarizeCacheMisses, type CacheMissSummary } from "@/lib/transcript-notices";
 import { cacheMissSummaryText, TRANSCRIPT_NOTICE_WARNING_COLOR, TranscriptNoticeLines } from "@/components/TranscriptNotices";
 import { findChatScrollAnchor, type ChatScrollPosition } from "@/lib/chat-scroll-position";
@@ -70,7 +69,7 @@ interface Props {
   onAttentionNeeded?: (request: BlockingExtensionUiRequest) => void;
   onSessionCreated?: (session: SessionInfo, sourceDraftKey: string) => void;
   onSessionForked?: (newSessionId: string, session?: SessionInfo) => void;
-  /** A subagent's or side chat's tab beside the main chat: the page's global shortcuts stay with the main chat. */
+  /** A side chat's tab beside the main chat: the page's global shortcuts stay with the main chat. */
   panel?: boolean;
   /** `/side`: a side chat was forked from this session; open its tab. */
   onSideSession?: (session: SessionInfo, prompt: string | null) => void;
@@ -84,13 +83,10 @@ interface Props {
   onDebugSnapshotReaderChange?: (reader: (() => DebugClientSession) | null) => void;
   onSessionStatsChange?: (stats: SessionStatsInfo | null) => void;
   onSessionStatsPanelOpen?: () => void;
-  /** Opens Settings on a section: a bare `/mcp` that pi's built-in MCP extension owns opens Settings › MCP. */
-  onOpenSettings?: (section: SettingsSection) => void;
   onContextUsageChange?: (usage: { percent: number | null; contextWindow: number; tokens: number | null } | null) => void;
   onOpenFile?: (filePath: string, page?: number) => void;
   /** Files dropped onto the chat were written into the working directory. */
   onFilesUploaded?: () => void;
-  onOpenSubagent?: (sessionId: string, label: string) => void;
   quoteSelectionEnabled?: boolean;
   initialPrompt?: string;
   onInitialPromptConsumed?: () => void;
@@ -260,7 +256,7 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, durationMs, cost, ca
   );
 }
 
-export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initialScrollPosition, onScrollPositionChange, sessionRunning, newSessionCwd, newSessionDraftKey, newSessionContextBar, initialNewSessionChoices, onNewSessionChoicesChange, onAgentEnd, onSessionEnded, onToolEnd, onAttentionNeeded, onSessionCreated, onSessionForked, panel = false, onSideSession, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onDebugSnapshotReaderChange, onSessionStatsChange, onSessionStatsPanelOpen, onOpenSettings, onContextUsageChange, onOpenFile, onFilesUploaded, onOpenSubagent, quoteSelectionEnabled = false, initialPrompt, onInitialPromptConsumed, soundEnabled = true, onSoundToggle, playDoneSound = () => {}, unlockAudio, holdAudio }: Props) {
+export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initialScrollPosition, onScrollPositionChange, sessionRunning, newSessionCwd, newSessionDraftKey, newSessionContextBar, initialNewSessionChoices, onNewSessionChoicesChange, onAgentEnd, onSessionEnded, onToolEnd, onAttentionNeeded, onSessionCreated, onSessionForked, panel = false, onSideSession, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onDebugSnapshotReaderChange, onSessionStatsChange, onSessionStatsPanelOpen, onContextUsageChange, onOpenFile, onFilesUploaded, quoteSelectionEnabled = false, initialPrompt, onInitialPromptConsumed, soundEnabled = true, onSoundToggle, playDoneSound = () => {}, unlockAudio, holdAudio }: Props) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const completionNotificationsEnabled = !isHiddenRelation(session?.relation);
@@ -275,8 +271,8 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
   soundEnabledRef.current = soundEnabled;
   const extensionDialogShownRef = useRef(false);
   const wrappedOnAgentEnd = useCallback((end: AgentEndInfo) => {
-    // A run someone stopped did not finish anything, and one whose subagents still work did not finish the task.
-    if (completionNotificationsEnabled && soundEnabledRef.current && !end.aborted && !end.subagentsActive) {
+    // A run someone stopped did not finish anything.
+    if (completionNotificationsEnabled && soundEnabledRef.current && !end.aborted) {
       // Another page showing this session got the same agent_end (#1688).
       const sid = sessionIdRef.current ?? session?.id;
       if (!sid || claimDoneChime([sid], Date.now() - DONE_CHIME_SAME_EVENT_MS)) playDoneSoundRef.current();
@@ -320,7 +316,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
   } = useAgentSession({
     session, sessionRunning, newSessionCwd, newSessionDraftKey, initialNewSessionChoices, onNewSessionChoicesChange, onAgentEnd: wrappedOnAgentEnd, onSessionEnded, onToolEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSideSession,
     modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsPanelOpen,
-    onOpenSettings, onDebugSnapshotReaderChange, t,
+    onDebugSnapshotReaderChange, t,
     deferInitialScroll: Boolean(pendingScrollRestore),
   });
   // Only whether a reply is streaming and has content yet: the chunks themselves
@@ -1019,7 +1015,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
               for (let i = messages.length - 1; i >= 0; i--) {
                 if (messages[i].role === "user") { lastUserIdx = i; break; }
               }
-              // Anchor for live-tail detection. A compaction summary or subagent
+              // Anchor for live-tail detection. A compaction summary or side chat
               // completion can sit after the last user message and own the
               // still-streaming segment. lastUserIdx stays the scroll target.
               let lastAnchorIdx = -1;
@@ -1076,7 +1072,6 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                     modelNames={modelNames}
                     cwd={messageCwd}
                     onOpenFile={onOpenFile}
-                    onOpenSubagent={onOpenSubagent}
                     entryId={entryIds[idx]}
                     searchBlock={entryIds[idx] === pendingSearchScroll?.entryId ? searchBlock : undefined}
                     onFork={bashRunning || isNew ? undefined : forkFromMessage}
@@ -1255,7 +1250,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
               );
             })()}
             {isStreaming && hasStreamingContent && (
-              <StreamingReply store={streamingStore} onCommit={updatePromptAnchor} toolResults={toolResultsMap} modelNames={modelNames} cwd={messageCwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} />
+              <StreamingReply store={streamingStore} onCommit={updatePromptAnchor} toolResults={toolResultsMap} modelNames={modelNames} cwd={messageCwd} onOpenFile={onOpenFile} />
             )}
 
             {(agentRunning || isCompacting) && !hasStreamingContent && (agentPhase || isCompacting) && (
@@ -1282,7 +1277,6 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                   timestamp: pendingBash.startedAt,
                 } as BashExecutionMessage}
                 sessionId={session?.id ?? sessionIdRef.current ?? undefined}
-                onOpenSubagent={onOpenSubagent}
               />
             )}
             {pendingBash?.liveOutput && !pendingBash.result && (
@@ -1416,7 +1410,7 @@ function SideChatDivider() {
   );
 }
 
-const StreamingReply = memo(function StreamingReply({ store, onCommit, toolResults, modelNames, cwd, onOpenFile, onOpenSubagent }: {
+const StreamingReply = memo(function StreamingReply({ store, onCommit, toolResults, modelNames, cwd, onOpenFile }: {
   store: StreamingStore;
   /** Runs after each chunk is in the DOM. */
   onCommit: () => void;
@@ -1424,12 +1418,11 @@ const StreamingReply = memo(function StreamingReply({ store, onCommit, toolResul
   modelNames: Record<string, string>;
   cwd?: string;
   onOpenFile?: (filePath: string, page?: number) => void;
-  onOpenSubagent?: (sessionId: string, label: string) => void;
 }) {
   const message = useStreamingSelector(store, selectStreamingMessage);
   useLayoutEffect(onCommit, [message, onCommit]);
   if (!message) return null;
-  return <MessageView key={streamRateKey(message)} message={message} toolResults={toolResults} isStreaming modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} />;
+  return <MessageView key={streamRateKey(message)} message={message} toolResults={toolResults} isStreaming modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} />;
 });
 
 // A one-line notice is exactly as tall as its entrance animation pins it, and

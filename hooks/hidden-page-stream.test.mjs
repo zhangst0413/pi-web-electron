@@ -8,7 +8,7 @@ import { createJiti } from "jiti";
 // browser's six connections per origin, shared by all tabs. The page's lease
 // request, renewed every 30 s either way, resets the session's idle countdown and
 // says what is under way in it:
-// a run, an extension dialog or a subagent left to finish keeps the stream, and
+// a run or an extension dialog keeps the stream, and
 // opens a released one again while the page is still hidden. The page's return
 // reopens it and shows what the server has under way.
 const shimPath = fileURLToPath(new URL("./__fixtures__/react-hook-shim.mjs", import.meta.url));
@@ -39,14 +39,13 @@ async function setup() {
   mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
   const sources = [];
   const requests = [];
-  // What the lease reply (busy, awaitingInput, subagentsActive) and the session's
+  // What the lease reply (busy, awaitingInput) and the session's
   // state read (state) report; tests change it. `answer` turns the lease request
   // into one that never answers (it only ends when aborted), a network failure,
   // an HTTP error or an ok reply whose body is null.
   const server = {
     busy: false,
     awaitingInput: false,
-    subagentsActive: false,
     state: { isStreaming: false, isPromptRunning: false },
     answer: "json",
   };
@@ -79,7 +78,7 @@ async function setup() {
       if (server.answer === "offline") throw new TypeError("Failed to fetch");
       if (server.answer === "error") return new Response("boom", { status: 500 });
       if (server.answer === "null") return json(null);
-      return json({ success: true, running: server.busy, awaitingInput: server.awaitingInput, subagentsActive: server.subagentsActive });
+      return json({ success: true, running: server.busy, awaitingInput: server.awaitingInput });
     }
     if (url === "/api/agent/s1" && init.body) return json({ success: true, data: null });
     if (url === "/api/agent/s1") return json({ running: true, state: server.state });
@@ -180,26 +179,6 @@ test("a quick tab switch keeps the stream and reads nothing", async () => {
     assert.equal(state.sources.length, 1);
     assert.equal(state.open().length, 1);
     assert.equal(state.reads(), reads);
-  } finally {
-    await teardown(state);
-  }
-});
-
-test("a subagent left to finish keeps the stream, checked again each grace", async () => {
-  const state = await setup();
-  try {
-    await connectIdle(state);
-    state.server.subagentsActive = true;
-    state.hide();
-    await state.tick(HIDDEN_PAGE_GRACE_MS);
-    assert.equal(state.checks(), 1);
-    assert.equal(state.open().length, 1, "its end starts a turn here");
-    await state.tick(HIDDEN_PAGE_GRACE_MS);
-    assert.equal(state.checks(), 2);
-    assert.equal(state.open().length, 1);
-    state.server.subagentsActive = false;
-    await state.tick(HIDDEN_PAGE_GRACE_MS);
-    assert.equal(state.open().length, 0);
   } finally {
     await teardown(state);
   }
@@ -428,7 +407,7 @@ test("the debug reader asks nothing and opens nothing, however often it reads", 
     assert.equal(typeof snapshot.lease.renewStartedAt, "number");
     assert.equal(snapshot.lease.last.outcome, "reply");
     assert.equal(snapshot.lease.last.httpStatus, 200);
-    assert.deepEqual(snapshot.lease.last.reply, { running: false, awaitingInput: false, subagentsActive: false });
+    assert.deepEqual(snapshot.lease.last.reply, { running: false, awaitingInput: false });
 
     // Reading all through the grace moves neither the release nor its check.
     state.hide();
@@ -546,7 +525,7 @@ test("the debug reader counts a reopen for activity apart from one for the page'
     assert.equal(snapshot.released.active, false);
     assert.equal(snapshot.reattached.count, 1);
     assert.equal(snapshot.reattached.lastReason, "activity");
-    assert.deepEqual(snapshot.lease.last.reply, { running: true, awaitingInput: false, subagentsActive: false });
+    assert.deepEqual(snapshot.lease.last.reply, { running: true, awaitingInput: false });
     assert.equal(snapshot.run.agentRunning, true);
 
     setVisibility("visible");
@@ -560,8 +539,8 @@ test("the debug reader counts a reopen for activity apart from one for the page'
 });
 
 test("only a lease reply with nothing under way releases; any activity reopens", () => {
-  assert.equal(canReleaseHiddenEventStream({ running: false, awaitingInput: false, subagentsActive: false }), true);
-  for (const busy of ["running", "awaitingInput", "subagentsActive"]) {
+  assert.equal(canReleaseHiddenEventStream({ running: false, awaitingInput: false }), true);
+  for (const busy of ["running", "awaitingInput"]) {
     assert.equal(canReleaseHiddenEventStream({ [busy]: true }), false, busy);
     assert.equal(sessionLeaseShowsActivity({ [busy]: true }), true, busy);
   }

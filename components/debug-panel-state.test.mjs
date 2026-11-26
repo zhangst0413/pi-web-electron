@@ -25,7 +25,6 @@ function summary(sessionId, extra = {}) {
     state: "alive",
     running: false,
     awaitingInput: false,
-    subagent: false,
     eventStreams: 0,
     providers: 0,
     nextIdleCheckAt: null,
@@ -105,8 +104,6 @@ test("only an answer of the snapshot's shape is rendered", () => {
     starting: false,
     providers: null,
     eventStreams: [],
-    subagents: { active: false, runs: [], notifications: [] },
-    mcp: null,
   };
   assert.equal(state.isDebugSnapshotResponse(snapshot({ session: detail })), true);
   for (const broken of [
@@ -118,7 +115,6 @@ test("only an answer of the snapshot's shape is rendered", () => {
     snapshot({ session: undefined }),
     snapshot({ session: { ...detail, eventStreams: null } }),
     snapshot({ session: { ...detail, wrapper: { state: "alive" } } }),
-    snapshot({ session: { ...detail, mcp: { servers: "x" } } }),
     snapshot({ server: { ...snapshot().server, pages: undefined } }),
     snapshot({ server: { ...snapshot().server, sseTotal: "1" } }),
   ]) {
@@ -189,7 +185,7 @@ function client(extra = {}) {
       requests: 2,
       unanswered: 0,
       errors: 0,
-      last: { at: LOCAL - 5 * SECOND, durationMs: 18, outcome: "reply", httpStatus: 200, reply: { running: false, awaitingInput: false, subagentsActive: false } },
+      last: { at: LOCAL - 5 * SECOND, durationMs: 18, outcome: "reply", httpStatus: 200, reply: { running: false, awaitingInput: false } },
     },
     ...extra,
   };
@@ -215,9 +211,9 @@ function page(extra = {}) {
 
 function wrapper(extra = {}) {
   return {
-    sessionId: "s1", state: "alive", stale: false, subagent: false, chatOnly: false,
+    sessionId: "s1", state: "alive", stale: false, chatOnly: false,
     createdAt: SERVER - 6 * MINUTE, startedAt: SERVER - 6 * MINUTE, closingAt: null, extensions: "bound",
-    run: { running: false, streaming: false, promptRunning: false, pendingPrompts: 0, bashRunning: false, compacting: false, retrying: false, queuedMessages: 0, waitingForMcp: false, runningTools: 0, mutatingCommands: 0, replacement: null },
+    run: { running: false, streaming: false, promptRunning: false, pendingPrompts: 0, bashRunning: false, compacting: false, retrying: false, queuedMessages: 0, runningTools: 0, mutatingCommands: 0, replacement: null },
     idle: { timeoutMs: 10 * MINUTE, nextCheckAt: SERVER + 8 * MINUTE, lastResetAt: null, forcedByStop: false },
     awaitingInput: false, pendingUiRequests: 0, customUis: 0, eventListeners: 1, lastEvent: null, lastCommand: null,
     ...extra,
@@ -232,8 +228,6 @@ function detail(extra = {}) {
     starting: false,
     providers: [],
     eventStreams: [{ holder: MINE, openedAt: SERVER - 5 * MINUTE, connectedAt: SERVER - 5 * MINUTE, lastWriteAt: null, droppedEvents: 0, queuedBytes: 0 }],
-    subagents: { active: false, runs: [], notifications: [] },
-    mcp: null,
     ...extra,
   };
 }
@@ -298,14 +292,6 @@ const ISSUE_CASES = [
     { id: "extensions", tone: "error", text: "扩展 · 失败" }],
   ["a liveness provider threw", { detail: { providers: [{ name: "keepalive", active: "error", byFile: false }, { name: "fine", active: true, byFile: false }] } },
     { id: "provider", tone: "error", text: "keepalive · 错误" }],
-  ["an MCP server did not connect", {
-    detail: {
-      mcp: {
-        active: true, disposed: false, runActive: false, idleMs: 0, idleReleaseAt: null, problems: 0,
-        servers: [{ name: "github", scope: "global", state: "failed", hasError: false, released: false }, { name: "ok", scope: "global", state: "connected", hasError: false, released: false }],
-      },
-    },
-  }, { id: "mcp", tone: "error", text: "MCP github · 未能连接" }],
 ];
 
 for (const [name, input, expected] of ISSUE_CASES) {
@@ -359,7 +345,7 @@ test("notable states are shown in place, never as issues", () => {
         awaitingInput: true,
         pendingUiRequests: 2,
         extensions: "binding",
-        run: { ...wrapper().run, running: true, retrying: true, waitingForMcp: true, pendingPrompts: 1 },
+        run: { ...wrapper().run, running: true, retrying: true, pendingPrompts: 1 },
         idle: { timeoutMs: 10 * MINUTE, nextCheckAt: SERVER + 30 * SECOND, lastResetAt: null, forcedByStop: true },
         eventListeners: 4,
       }),
@@ -368,12 +354,6 @@ test("notable states are shown in place, never as issues", () => {
         { holder: OTHER, openedAt: SERVER, connectedAt: null, lastWriteAt: null, droppedEvents: 0, queuedBytes: 0 },
       ],
       providers: [{ name: "idle-ext", active: false, byFile: true }],
-      subagents: {
-        active: true,
-        runs: [{ sessionId: "sub", parentSessionId: "s1", status: "aborted", profile: null, background: true, resumed: false, dispatchedAt: null, abortRequested: true, mcpWaiting: true }],
-        notifications: [{ sessionId: "sub", parentSessionId: "s1", since: SERVER - SECOND }],
-      },
-      mcp: { active: false, disposed: true, runActive: false, idleMs: 0, idleReleaseAt: null, problems: 2, servers: [{ name: "x", scope: "global", state: "needs-auth", hasError: false, released: true }] },
     },
   }), []);
   // A wrapper from before a hot reload knows nothing of its extensions.
@@ -518,15 +498,7 @@ test("bars and freshness by their thresholds", () => {
   assert.equal(state.streamFreshness({ ...client().connection, staleAfterMs: 0 }, LOCAL), null);
 });
 
-test("MCP servers, holders and status slots", () => {
-  const mcp = (extra) => state.mcpServerTone({ name: "x", scope: "global", state: "connected", hasError: false, released: false, ...extra });
-  assert.deepEqual(mcp({}), { tone: "ok", filled: true });
-  assert.deepEqual(mcp({ state: "connecting" }), { tone: "warning", filled: false });
-  assert.deepEqual(mcp({ state: "needs-auth" }), { tone: "warning", filled: true });
-  assert.deepEqual(mcp({ state: "conflict" }), { tone: "error", filled: true });
-  assert.deepEqual(mcp({ hasError: true }), { tone: "error", filled: true });
-  assert.deepEqual(mcp({ released: true }), { tone: "dim", filled: false });
-
+test("holders and status slots", () => {
   assert.equal(state.debugHolderTone(MINE, MINE), "accent");
   assert.equal(state.debugHolderTone(OTHER, MINE), "muted");
   assert.equal(state.debugHolderTone(null, MINE), "dim");
@@ -547,7 +519,6 @@ test("a session row's tooltip names everything the server holds for it", () => {
     "root · 存活 · 运行中 · 1 个 SSE · 回收倒计时 8分",
   );
   assert.equal(state.debugSessionTitle(summary("forced", { forcedByStop: true, starts: 3 }), 30 * SECOND, t), "forced · 存活 · 30秒后关闭（已停止） · 启动 3 次");
-  assert.equal(state.debugSessionTitle(summary("sub-1", { subagent: true, eventStreams: 2, providers: 1 }), null, t), "sub-1（子 Agent） · 存活 · 2 个 SSE · 1 个存活提供者");
 });
 
 // ── Sessions on the server ──
@@ -555,7 +526,7 @@ test("a session row's tooltip names everything the server holds for it", () => {
 function info(id, extra = {}) {
   return { id, name: id, path: "", cwd: "/work/p1", projectRoot: "/work/p1", projectKey: "/work/p1", created: "", modified: "2026-10-01T00:00:00Z", messageCount: 1, firstMessage: "", ...extra };
 }
-const sub = (parentSessionId) => ({ relation: { kind: "subagent", parentSessionId, profile: "general", description: "", status: "running" } });
+const sub = (parentSessionId) => ({ relation: { kind: "side", parentSessionId } });
 
 function grouped(catalog, ids, currentId) {
   const byId = new Map(catalog.map((session) => [session.id, session]));
@@ -565,7 +536,7 @@ function grouped(catalog, ids, currentId) {
   }));
 }
 
-test("sessions are grouped like the sidebar: the chat's project and family first, subagents under their root", () => {
+test("sessions are grouped like the sidebar: the chat's project and family first, members under their root", () => {
   const catalog = [
     info("a", { modified: "2026-10-05T00:00:00Z" }),
     info("a1", { ...sub("a"), modified: "2026-10-05T01:00:00Z" }),
@@ -585,7 +556,7 @@ test("sessions are grouped like the sidebar: the chat's project and family first
     { name: "p4", rows: ["e"] },
     { name: null, rows: ["x-unlisted"] },
   ]);
-  // The chat a subagent: its family leads, the subagent marked.
+  // The chat a side chat: its family leads, the member marked.
   assert.deepEqual(grouped(catalog, ["c", "a1", "b"], "a1"), [
     { name: "p1", rows: ["a (placeholder)", "  a1 *", "b"] },
     { name: "p2", rows: ["c"] },
@@ -849,12 +820,11 @@ test("the Escape that closes the panel says whether focus was inside it", () => 
 });
 
 test("codes the server sends read as words where the panel knows them, else as they came", () => {
-  assert.equal(state.translateDebugCode("queued", state.DEBUG_RUN_STATUS_KEYS, t), "排队中");
-  assert.equal(state.translateDebugCode("running", state.DEBUG_RUN_STATUS_KEYS, t), "运行中");
-  assert.equal(state.translateDebugCode("unknown", state.DEBUG_RUN_STATUS_KEYS, t), "未知");
+  assert.equal(state.translateDebugCode("running", state.DEBUG_STATUS_KEYS, t), "运行中");
+  assert.equal(state.translateDebugCode("starting", state.DEBUG_STATUS_KEYS, t), "启动中");
   assert.equal(state.translateDebugCode("set_tools", state.DEBUG_CLOSE_REASON_KEYS, t), "工具已更改");
-  assert.equal(state.translateDebugCode("paused", state.DEBUG_RUN_STATUS_KEYS, t), "paused", "a status newer than the map");
-  assert.equal(state.translateDebugCode("toString", state.DEBUG_RUN_STATUS_KEYS, t), "toString", "only the map's own keys");
+  assert.equal(state.translateDebugCode("paused", state.DEBUG_STATUS_KEYS, t), "paused", "a status newer than the map");
+  assert.equal(state.translateDebugCode("toString", state.DEBUG_STATUS_KEYS, t), "toString", "only the map's own keys");
 });
 
 test("every key chosen at run time is translated", () => {
@@ -868,7 +838,6 @@ test("every key chosen at run time is translated", () => {
     state.DEBUG_SESSION_STATE_KEYS,
     state.DEBUG_EXTENSIONS_KEYS,
     state.DEBUG_POLL_FAILURE_KEYS,
-    state.DEBUG_RUN_STATUS_KEYS,
     state.DEBUG_CLOSE_REASON_KEYS,
     state.DEBUG_STATUS_KEYS,
   ]) {

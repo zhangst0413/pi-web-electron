@@ -484,7 +484,7 @@ test("renders the model built from a catalog with unique row keys", () => {
   const sessions = [
     session("a", { modified: new Date(NOW - MINUTE).toISOString() }),
     session("b", { cwd: "/work/other", projectRoot: "/work/other", projectKey: "/work/other" }),
-    session("sub", { relation: { kind: "subagent", parentSessionId: "a", profile: "x", description: "", status: "running" } }),
+    session("sub", { relation: { kind: "side", parentSessionId: "a" } }),
   ];
   const model = buildSessionTree({
     sessions,

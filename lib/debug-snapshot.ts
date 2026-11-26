@@ -2,13 +2,11 @@ import { AGENT_EVENT_HEARTBEAT_MS } from "./agent-event-wire";
 import { countAgentEventStreams, listAgentEventStreams } from "./agent-event-stream";
 import type {
   DebugEventStream,
-  DebugParentNotification,
   DebugServerGlobal,
   DebugServerPage,
   DebugSessionDetail,
   DebugSessionSummary,
   DebugSnapshotResponse,
-  DebugSubagentRun,
 } from "./debug-types";
 import { countFileWatches } from "./file-watch-registry";
 import { listPageStreams } from "./page-stream-registry";
@@ -20,7 +18,6 @@ import {
   type RpcSessionDebugEntry,
 } from "./rpc-manager";
 import { listRegisteredSessionLivenessProviders, listSessionLivenessProviders } from "./session-liveness";
-import { hasUnsettledSubagentRun, subagentDebugSnapshot } from "./subagent-runtime";
 import { getTerminalStats } from "./terminal-manager";
 
 // Each source on its own: one that throws reads as empty, so the panel always gets a well-formed
@@ -34,12 +31,6 @@ function read<T>(source: () => T, fallback: T): T {
 }
 
 const NO_TERMINALS: DebugServerGlobal["terminals"] = { count: 0, listeners: 0, detached: 0, exited: 0, nextCleanupAt: null };
-
-/** Ids in the subagent run map: a subagent between its wrapper's close and its result entry. */
-function subagentRunIds(): Set<string> {
-  const runs = globalThis.__piSubagentRuns;
-  return runs instanceof Map ? new Set(runs.keys()) : new Set();
-}
 
 // Field by field, so a row never carries more than the contract names.
 function toEventStream(stream: DebugEventStream): DebugEventStream {
@@ -59,10 +50,6 @@ function buildDetail(
   starting: readonly string[],
   streams: readonly (DebugEventStream & { sessionId: string })[],
 ): DebugSessionDetail {
-  const subagents = read<{ runs: DebugSubagentRun[]; notifications: DebugParentNotification[] }>(
-    () => subagentDebugSnapshot(sessionId),
-    { runs: [], notifications: [] },
-  );
   return {
     sessionId,
     wrapper: entry?.snapshot ?? null,
@@ -75,12 +62,6 @@ function buildDetail(
       null,
     ),
     eventStreams: streams.filter((stream) => stream.sessionId === sessionId).map(toEventStream),
-    subagents: {
-      active: read(() => hasUnsettledSubagentRun(sessionId), false),
-      runs: subagents.runs,
-      notifications: subagents.notifications,
-    },
-    mcp: entry ? read(() => entry.readMcp(), null) : null,
   };
 }
 
@@ -96,7 +77,6 @@ export function buildDebugSnapshot(sessionId: string | null, now = Date.now()): 
   // Registered, not asked: a summary runs no extension code.
   const providers = read(() => listRegisteredSessionLivenessProviders(), null) ?? [];
   const streams = read(() => listAgentEventStreams(), []);
-  const subagentIds = read(subagentRunIds, new Set<string>());
 
   const wrapperById = new Map<string, RpcSessionDebugEntry>();
   for (const entry of wrappers) {
@@ -117,7 +97,6 @@ export function buildDebugSnapshot(sessionId: string | null, now = Date.now()): 
       state: snapshot?.state ?? "none",
       running: snapshot?.run.running ?? false,
       awaitingInput: snapshot?.awaitingInput ?? false,
-      subagent: snapshot?.subagent === true || subagentIds.has(id),
       eventStreams: streamsBySession.get(id) ?? 0,
       providers: providers.filter((provider) => provider.sessionId === id
         || (sessionFile !== null && provider.sessionFile === sessionFile)).length,

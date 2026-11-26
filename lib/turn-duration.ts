@@ -19,7 +19,7 @@ function answersTurn(message: AgentMessage): boolean {
 
 /**
  * How long a finished turn took: from its anchor (the user's message, a compaction summary,
- * a subagent completion, an extension's message that opened a run) until the last response or
+ * a completion notice, an extension's message that opened a run) until the last response or
  * tool result in `messages[anchorIdx + 1, endIdx)` ended, less the waits between an answer and a
  * run an extension started after it inside the turn (its message is no anchor, e.g. the one that
  * continues a reply cut at the output limit). The custom messages right after the anchor opened

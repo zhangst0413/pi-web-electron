@@ -135,8 +135,8 @@ function checkInferredRepo(repoRoot: string): Promise<string | null> {
   const current = inferredRepoChecks.get(repoRoot);
   if (current) return current;
   const task = (async () => {
-    const isRepo = await pathExists(join(repoRoot, ".git"))
-      || (await Promise.all(["HEAD", "objects", "refs"].map((name) => pathExists(join(repoRoot, name))))).every(Boolean);
+    const isRepo = await pathExists(join(/*turbopackIgnore: true*/ repoRoot, ".git"))
+      || (await Promise.all(["HEAD", "objects", "refs"].map((name) => pathExists(join(/*turbopackIgnore: true*/ repoRoot, name))))).every(Boolean);
     return isRepo ? realPathOrSelfAsync(repoRoot) : null;
   })().finally(() => inferredRepoChecks.delete(repoRoot));
   inferredRepoChecks.set(repoRoot, task);
@@ -369,9 +369,9 @@ export async function addWorktree(cwd: string, branch: string): Promise<{ path: 
   // Missing entries too: a deleted folder's entry still holds the branch.
   const holder = (await listRegisteredWorktrees(repoRoot)).find((worktree) => worktree.branch === trimmed);
   if (holder) throw new WorktreeBranchInUseError(trimmed, holder.path, holder.missing);
-  const baseDir = `${resolve(repoRoot)}-worktrees`;
+  const baseDir = `${resolve(/*turbopackIgnore: true*/ repoRoot)}-worktrees`;
   const worktreePath = join(baseDir, dirName);
-  if (existsSync(worktreePath)) {
+  if (existsSync(/*turbopackIgnore: true*/ worktreePath)) {
     throw new Error(`Directory already exists: ${worktreePath}`);
   }
   mkdirSync(baseDir, { recursive: true });

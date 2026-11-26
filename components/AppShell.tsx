@@ -16,7 +16,6 @@ import { ProjectTrustDialog, type ProjectTrustFailure } from "./ProjectTrustDial
 import { BranchNavigator, hasSessionBranches } from "./BranchNavigator";
 import { SystemPromptPanel } from "./SystemPromptPanel";
 import { ToolDefinitionsPanel } from "./ToolDefinitionsPanel";
-import { AgentMiniStrip } from "./AgentMiniStrip";
 import { AgentSessionPanel } from "./AgentSessionPanel";
 import { DebugPanel, DebugPanelBoundary } from "./DebugPanel";
 import { SessionChatPanel } from "./SessionChatPanel";
@@ -71,7 +70,7 @@ import {
   SIDEBAR_MIN_WIDTH,
 } from "@/lib/panel-layout";
 import type { BlockingExtensionUiRequest, SessionInfo, SessionTreeNode } from "@/lib/types";
-import type { McpErrorResponse, ProjectTrustStatus } from "@/lib/api-types";
+import type { ProjectTrustStatus } from "@/lib/api-types";
 import type { ChatInputHandle } from "./ChatInput";
 import type { AgentEndInfo, NewSessionChoices } from "@/hooks/useAgentSession";
 import type { SessionStatsInfo } from "@/lib/pi-types";
@@ -80,10 +79,9 @@ import type { FileViewerState } from "@/lib/file-viewer-state";
 import { PRESET_READ_ONLY, type ToolEntry } from "@/lib/tool-presets";
 import { createSideChat, deleteSideChat } from "@/lib/side-chat-client";
 import { sideChatHit } from "@/lib/session-search-hit";
-import { getAgentStripMembers, getAgentsBadge, getSessionFamily, isHiddenRelation, sideChatTitle } from "@/lib/session-family";
+import { getAgentsBadge, getSessionFamily, isHiddenRelation, sideChatTitle } from "@/lib/session-family";
 import { getLastSettingsSection, settingsSectionRequiresProject, type SettingsSection } from "@/lib/settings-navigation";
 import { focusIfLost } from "@/lib/stacked-dialog";
-import { loadAgentStripLocked, saveAgentStripLocked } from "@/lib/agent-strip-lock";
 import { claimDoneChime } from "@/lib/done-chime";
 import { readJsonOrThrow } from "@/lib/fetch-json";
 
@@ -194,29 +192,13 @@ export function AppShell() {
       return ids;
     });
   }, []);
-  const agentsBadge = activeSessionFamily ? getAgentsBadge(activeSessionFamily.subagents, runningSessionIds) : null;
+  const agentsBadge = activeSessionFamily ? getAgentsBadge(activeSessionFamily.members, runningSessionIds) : null;
   const agentsButtonLabel = agentsBadge?.running
     ? translate("agentSwitcher.titleRunning", { count: agentsBadge.count })
     : translate("agentSwitcher.title");
-  // A subagent or side chat in the main chat gets the Agents strip under the toolbar (#1658).
-  // It shows whenever the full switcher is closed, so the Agents button swaps the two there.
-  // On the main agent only while this browser has it locked (the strip's own padlock);
-  // otherwise the button opens and closes the switcher there as before.
-  const [agentStripLocked, setAgentStripLocked] = useState(loadAgentStripLocked);
-  const agentStripMembers = useMemo(
-    () => getAgentStripMembers(activeSessionFamily, selectedSession?.id, agentStripLocked),
-    [activeSessionFamily, selectedSession?.id, agentStripLocked],
-  );
   // The Agents button on screen (one of its places at a time): focus goes back to it when the
-  // switcher closes on a pick or the strip leaves under the keyboard.
+  // switcher closes on a pick.
   const agentsButtonRef = useRef<HTMLButtonElement | null>(null);
-  const handleToggleAgentStripLock = useCallback(() => {
-    const next = !agentStripLocked;
-    setAgentStripLocked(next);
-    saveAgentStripLocked(next);
-    // Unlocked on the main agent, the strip and its padlock leave the page.
-    if (!next) requestAnimationFrame(() => focusIfLost(document, agentsButtonRef.current));
-  }, [agentStripLocked]);
   // The temporary id distinguishes consecutive fresh composers in one cwd.
   const [newSessionCwd, setNewSessionCwd] = useState<string | null>(null);
   const [newSessionDraftId, setNewSessionDraftId] = useState("initial");
@@ -500,7 +482,6 @@ export function AppShell() {
     setActiveTopPanel("session");
   }, [isMobile]);
 
-  // The composer opens Settings too: a bare /mcp opens Settings › MCP (useAgentSession).
   const openSettingsSection = useCallback((section: SettingsSection) => {
     setSettingsOpenAtHome(false);
     setSettingsSection(section);
@@ -596,8 +577,8 @@ export function AppShell() {
   const fileWorkspaceGenerationRef = useRef(0);
   const [terminalTabs, setTerminalTabs] = useState<TerminalTab[]>([]);
   const [terminalsRestored, setTerminalsRestored] = useState(false);
-  // Subagent tabs remain open within a project; side tabs follow their main session.
-  const [agentTabs, setAgentTabs] = useState<{ sessionId: string; label: string; side?: boolean }[]>([]);
+  // Side tabs follow their main session.
+  const [agentTabs, setAgentTabs] = useState<{ sessionId: string; label: string }[]>([]);
   const sideTabOwnerRef = useRef<string | null>(null);
   const sideTabsReadyRef = useRef(false);
   const sideTabsSavedOnWorkspaceSwitchRef = useRef(false);
@@ -614,13 +595,13 @@ export function AppShell() {
       closing: Boolean(tab.closing),
     })),
     ...agentTabs.map((tab) => {
-      const session = tab.side ? sessionCatalog.find((item) => item.id === tab.sessionId) : undefined;
-      const label = session ? sideChatTitle(session, translate("agentSwitcher.sideChat"), activeSessionFamily?.subagents ?? []) : tab.label;
+      const session = sessionCatalog.find((item) => item.id === tab.sessionId);
+      const label = session ? sideChatTitle(session, translate("agentSwitcher.sideChat"), activeSessionFamily?.members ?? []) : tab.label;
       return {
         id: `agent:${tab.sessionId}`,
         label,
         filePath: label,
-        kind: (tab.side ? "side" : "agent") as "agent" | "side",
+        kind: "side" as const,
       };
     }),
   ], panelTabOrder);
@@ -656,7 +637,7 @@ export function AppShell() {
 
   const rememberSideTabs = useCallback((key: string) => {
     try {
-      const tabs = agentTabs.filter((tab) => tab.side);
+      const tabs = agentTabs;
       // A session without side tabs keeps no entry: one per visited session otherwise.
       if (!tabs.length) {
         window.sessionStorage.removeItem(sideTabsKey(key));
@@ -694,8 +675,7 @@ export function AppShell() {
     fileWorkspaceGenerationRef.current += 1;
     setFileWorkspaceGeneration(fileWorkspaceGenerationRef.current);
     setFileTabs(next.tabs);
-    // Subagent tabs are project-scoped; side tabs are saved under their main session.
-    setAgentTabs((tabs) => tabs.filter((tab) => tab.side));
+    // Side tabs are saved under their main session, and stay open across a switch.
     if (sideTabsReadyRef.current && sideTabOwnerRef.current) {
       rememberSideTabs(sideTabOwnerRef.current);
       sideTabsSavedOnWorkspaceSwitchRef.current = true;
@@ -738,12 +718,12 @@ export function AppShell() {
       sideTabsSavedOnWorkspaceSwitchRef.current = false;
       sideTabsReadyRef.current = true;
       sideTabOwnerRef.current = sideTabOwner;
-      let restored = { tabs: [] as { sessionId: string; label: string; side: true }[], activeId: null as string | null, open: false };
+      let restored = { tabs: [] as { sessionId: string; label: string }[], activeId: null as string | null, open: false };
       if (sideTabOwner) {
         try { restored = restoreSideTabs(window.sessionStorage.getItem(sideTabsKey(sideTabOwner)), sideTabOwner, sessionCatalog); }
         catch { /* storage is optional */ }
       }
-      setAgentTabs((tabs) => [...tabs.filter((tab) => !tab.side), ...restored.tabs]);
+      setAgentTabs(() => restored.tabs);
       const nextId = restored.activeId === `agent:${selectedSession?.id}` ? null : restored.activeId;
       if (nextId || activeFileTabId?.startsWith("agent:") || !activeFileTabId) {
         setActiveFileTabId(nextId ?? fileTabs.at(-1)?.id ?? terminalTabs.at(-1)?.id ?? null);
@@ -1163,7 +1143,7 @@ export function AppShell() {
     setRefreshKey((k) => k + 1);
     setExplorerRefreshKey((k) => k + 1);
 
-    if (end.aborted || end.subagentsActive || isHiddenRelation(selectedSession?.relation)) return;
+    if (end.aborted || isHiddenRelation(selectedSession?.relation)) return;
     if (!shouldShowBrowserNotification()) return;
     const targetSession = selectedSession;
     if (targetSession) {
@@ -1361,31 +1341,31 @@ export function AppShell() {
     if (isMobile) setSidebarOpen(false);
   }, [terminalTabs, isMobile]);
 
-  // Subagent work opens in a right-panel tab instead of hijacking the main chat.
-  const handleOpenSubagentTab = useCallback((sessionId: string, label: string, side?: boolean) => {
+  // Side chat work opens in a right-panel tab instead of hijacking the main chat.
+  const handleOpenMemberTab = useCallback((sessionId: string, label: string) => {
     setAgentTabs((prev) => prev.some((tab) => tab.sessionId === sessionId)
       ? prev
-      : [...prev, { sessionId, label, ...(side ? { side: true } : {}) }]);
+      : [...prev, { sessionId, label }]);
     setActiveFileTabId(`agent:${sessionId}`);
     setRightPanelOpen(true);
     if (isMobile) setSidebarOpen(false);
   }, [isMobile]);
 
-  // The agent switcher's side-panel button: opens a subagent's tab, or closes
+  // The agent switcher's side-panel button: opens a member's tab, or closes
   // it when the open panel already has it (the panel closes with its last tab).
   // The switcher stays open beside the panel, except on phones, where the
   // panel covers the chat.
-  const openSubagentTabIds = useMemo(
+  const openMemberTabIds = useMemo(
     () => new Set(rightPanelOpen ? agentTabs.map((tab) => tab.sessionId) : []),
     [agentTabs, rightPanelOpen],
   );
-  const handleToggleSubagentTab = (sessionId: string, label: string, side?: boolean) => {
-    if (openSubagentTabIds.has(sessionId)) {
+  const handleToggleMemberTab = (sessionId: string, label: string) => {
+    if (openMemberTabIds.has(sessionId)) {
       handleCloseFileTab(`agent:${sessionId}`);
       return;
     }
     if (isMobile) setActiveTopPanel(null);
-    handleOpenSubagentTab(sessionId, label, side);
+    handleOpenMemberTab(sessionId, label);
   };
 
   // A side chat's tab belongs to its parent's panel: opened here while the main
@@ -1394,7 +1374,7 @@ export function AppShell() {
   const openSideChatTab = useCallback((session: SessionInfo, label: string) => {
     const parentId = session.relation?.kind === "side" ? session.relation.parentSessionId : null;
     if (!parentId || parentId === sideTabOwnerRef.current) {
-      handleOpenSubagentTab(session.id, label, true);
+      handleOpenMemberTab(session.id, label);
       return true;
     }
     try {
@@ -1402,7 +1382,7 @@ export function AppShell() {
       window.sessionStorage.setItem(key, appendSideTab(window.sessionStorage.getItem(key), session.id, label));
     } catch { /* storage is optional */ }
     return false;
-  }, [handleOpenSubagentTab]);
+  }, [handleOpenMemberTab]);
 
   // A search hit in a side chat never picks it as the main chat (ADR 0007): its
   // parent opens with the side chat's tab, as the Agents switcher's tab button
@@ -1439,7 +1419,7 @@ export function AppShell() {
   }, [handleSideSession, isMobile, translate]);
 
   // A side chat's first prompt names it: read the name when a run in an open tab starts or ends.
-  const runningSideTabs = agentTabs.filter((tab) => tab.side && runningSessionIds.has(tab.sessionId)).map((tab) => tab.sessionId).join();
+  const runningSideTabs = agentTabs.filter((tab) => runningSessionIds.has(tab.sessionId)).map((tab) => tab.sessionId).join();
   useEffect(() => {
     if (runningSideTabs) setRefreshKey((key) => key + 1);
   }, [runningSideTabs]);
@@ -1503,7 +1483,7 @@ export function AppShell() {
     return null;
   }, [handleCloseFileTab, handleSelectSession, handleSessionDeleted]);
 
-  // One session, one chat: opening a subagent or side chat in the main chat closes its tab.
+  // One session, one chat: opening a side chat in the main chat closes its tab.
   const selectedSessionId = selectedSession?.id;
   useEffect(() => {
     if (agentTabs.some((tab) => tab.sessionId === selectedSessionId)) handleCloseFileTab(`agent:${selectedSessionId}`);
@@ -1592,8 +1572,6 @@ export function AppShell() {
     if (!projectTrustCwd) return;
 
     const controller = new AbortController();
-    // The answer also lists the project's MCP servers (`mcpFile`, `mcpServers`), unused here: the
-    // trust dialog fetches the listing again when it opens, since the file can change in between.
     fetch(`/api/project-trust?cwd=${encodeURIComponent(projectTrustCwd)}`, {
       signal: controller.signal,
     })
@@ -1618,7 +1596,7 @@ export function AppShell() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cwd: projectTrustCwd }),
       });
-      const data = await response.json() as ProjectTrustStatus & Partial<McpErrorResponse>;
+      const data = await response.json() as ProjectTrustStatus & { error?: string; reason?: string };
       if (!response.ok || data.error) {
         // The dialog translates the reason; the English error is only its diagnostic.
         setProjectTrustError({ error: data.error ?? `HTTP ${response.status}`, ...(data.reason ? { reason: data.reason } : {}) });
@@ -1641,15 +1619,8 @@ export function AppShell() {
     setProjectTrustDialogOpen(true);
   }, []);
 
-  // Settings › MCP added a project server: `.pi/mcp.json` alone makes a folder require trust, and a
-  // fresh folder was trusted in the same step. Every mounted section reloads in place on the new
-  // status (projectTrustReloadKey); nothing was rebuilt, so the chat needs no new session key.
-  const handleProjectTrustChanged = useCallback((cwd: string, status: ProjectTrustStatus) => {
-    if (cwd === projectTrustCwd) setProjectTrust(status);
-  }, [projectTrustCwd]);
-
   const activeFileTab = fileTabs.find((tab) => tab.id === activeFileTabId) ?? null;
-  // Subagent work tabs: like files, only the active one is mounted.
+  // Side chat work tabs: like files, only the active one is mounted.
   const activeAgentTab = agentTabs.find((tab) => `agent:${tab.sessionId}` === activeFileTabId) ?? null;
   const activeCwdName = activeCwd ? getFileName(activeCwd) || activeCwd : null;
   const windowTitle = activeCwdName ? `${activeCwdName} - Pi Web` : "Pi Web";
@@ -1797,7 +1768,7 @@ export function AppShell() {
     );
   };
 
-  // While subagents run: their count, ringed by a spinner; otherwise all of them.
+  // While a family member runs: the count, ringed by a spinner; otherwise all of them.
   const renderAgentsBadge = (badge: { count: number; running: boolean }, mobile: boolean) => (
     <span
       aria-hidden="true"
@@ -2645,17 +2616,17 @@ export function AppShell() {
               {activeTopPanel === "agents" && activeSessionFamily && selectedSession && (
                 <AgentSessionPanel
                   rootSession={activeSessionFamily.root}
-                  subagents={activeSessionFamily.subagents}
+                  members={activeSessionFamily.members}
                   selectedSessionId={selectedSession.id}
                   runningSessionIds={runningSessionIds}
-                  // A pick closes the switcher, so the strip (where it shows) takes over at once.
+                  // A pick closes the switcher.
                   onSelectSession={(session) => {
                     setActiveTopPanel(null);
                     handleSelectSession(session);
                     requestAnimationFrame(() => focusIfLost(document, agentsButtonRef.current));
                   }}
-                  openSubagentTabIds={openSubagentTabIds}
-                  onToggleSubagentTab={handleToggleSubagentTab}
+                  openMemberTabIds={openMemberTabIds}
+                  onToggleMemberTab={handleToggleMemberTab}
                   onNewSideChat={() => handleNewSideChat(activeSessionFamily.root.id)}
                   onDeleteSideChat={(sessionId) => handleDeleteSideChat(sessionId, activeSessionFamily.root)}
                 />
@@ -2883,17 +2854,6 @@ export function AppShell() {
           )}
 
         </div>
-        {agentStripMembers && activeSessionFamily && selectedSession && activeTopPanel !== "agents" && (
-          <AgentMiniStrip
-            rootSession={activeSessionFamily.root}
-            members={agentStripMembers}
-            selectedSessionId={selectedSession.id}
-            runningSessionIds={runningSessionIds}
-            onSelectSession={handleSelectSession}
-            locked={agentStripLocked}
-            onToggleLock={handleToggleAgentStripLock}
-          />
-        )}
         {isMobile && renderProjectTrustWarning(true)}
         </div>
 
@@ -2929,11 +2889,9 @@ export function AppShell() {
               onDebugSnapshotReaderChange={handleDebugSnapshotReaderChange}
               onSessionStatsChange={handleSessionStatsChange}
               onSessionStatsPanelOpen={openSessionStatsPanel}
-              onOpenSettings={openSettingsSection}
               onContextUsageChange={handleContextUsageChange}
               onOpenFile={handleOpenLinkedFile}
               onFilesUploaded={handleExplorerRefresh}
-              onOpenSubagent={handleOpenSubagentTab}
               quoteSelectionEnabled={quoteSelectionEnabled}
               soundEnabled={soundEnabled}
               onSoundToggle={onSoundToggle}
@@ -3129,12 +3087,10 @@ export function AppShell() {
               modelsRefreshKey={modelsRefreshKey}
               quoteSelectionEnabled={quoteSelectionEnabled}
               onOpenFile={handleOpenLinkedFile}
-              onOpenSubagent={handleOpenSubagentTab}
               onSessionForked={(newSessionId, session) => {
                 if (isMobile) setRightPanelOpen(false);
                 handleSessionForked(newSessionId, session);
               }}
-              onOpenSettings={openSettingsSection}
               onToolEnd={handleToolEnd}
               onFilesUploaded={handleExplorerRefresh}
               soundEnabled={soundEnabled}
@@ -3161,11 +3117,9 @@ export function AppShell() {
         }}
         onSessionReloaded={() => setSessionKey((key) => key + 1)}
         projectTrust={projectTrust}
-        onOpenTrustDialog={openProjectTrustDialog}
-        onProjectTrustChanged={handleProjectTrustChanged}
       />
     )}
-    {/* After Settings, so it opens above it (z-index 1100 over 1000) when Settings › MCP asks for it. */}
+    {/* After Settings, so it opens above it (z-index 1100 over 1000). */}
     {projectTrustDialogOpen && projectTrustCwd && (
       <ProjectTrustDialog
         cwd={projectTrustCwd}

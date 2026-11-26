@@ -61,7 +61,7 @@ test("a lease renewal resets the idle countdown and reports what is under way, w
   now += 7 * MINUTE;
   const renewed = await lease(id);
   assert.equal(renewed.status, 200);
-  assert.deepEqual(renewed.body, { success: true, running: false, awaitingInput: false, subagentsActive: false });
+  assert.deepEqual(renewed.body, { success: true, running: false, awaitingInput: false });
   assert.deepEqual(
     { lastResetAt: idle().lastResetAt, nextCheckAt: idle().nextCheckAt },
     { lastResetAt: now, nextCheckAt: now + SESSION_IDLE_TIMEOUT_MS },
@@ -75,7 +75,7 @@ test("a lease renewal resets the idle countdown and reports what is under way, w
   const unknown = "00000000-0000-4000-8000-000000000000";
   const missing = await lease(unknown);
   assert.equal(missing.status, 200);
-  assert.deepEqual(missing.body, { success: true, running: false, awaitingInput: false, subagentsActive: false });
+  assert.deepEqual(missing.body, { success: true, running: false, awaitingInput: false });
   assert.equal(getRpcSession(unknown), undefined, "a renewal never starts a wrapper");
 
   // Stop's forced deadline stays put: a bash command abort_bash cannot stop.
@@ -97,7 +97,7 @@ test("a lease renewal resets the idle countdown and reports what is under way, w
   const closing = session.shutdown();
   assert.equal(session.isAlive(), false);
   const closed = await lease(id);
-  assert.deepEqual(closed.body, { success: true, running: false, awaitingInput: false, subagentsActive: false });
+  assert.deepEqual(closed.body, { success: true, running: false, awaitingInput: false });
   assert.equal(idle().lastResetAt, beforeClose, "no timer armed on a closing wrapper");
   await closing;
   assert.equal(idle().nextCheckAt, null);

@@ -81,10 +81,11 @@ export class ModelsConfigReadError extends Error {
 export function readModelsConfig(
   modelsPath = getModelsConfigPath(),
 ): Record<string, unknown> {
-  if (!existsSync(modelsPath)) return { providers: {} };
+  // models.json lives in the user's agent folder, never in the bundle.
+  if (!existsSync(/*turbopackIgnore: true*/ modelsPath)) return { providers: {} };
   let parsed: unknown;
   try {
-    const content = readFileSync(modelsPath, "utf8").replace(/^\uFEFF/, "");
+    const content = readFileSync(/*turbopackIgnore: true*/ modelsPath, "utf8").replace(/^\uFEFF/, "");
     if (!content.trim()) return { providers: {} };
     parsed = JSON.parse(stripJsonComments(content));
   } catch (error) {
@@ -106,7 +107,7 @@ export function writeModelsConfig(
   // was not built from it, so writing would silently discard its contents.
   readModelsConfig(modelsPath);
   const dir = dirname(modelsPath);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  if (!existsSync(/*turbopackIgnore: true*/ dir)) mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
   const normalized = normalizeModelsConfigCosts(sanitizeModelsConfig(data));
   // models.json may be a symbolic link (a dotfiles setup). The atomic write
   // renames a temp file over the destination path, which would replace the
@@ -115,9 +116,9 @@ export function writeModelsConfig(
   // guard above reports it as missing, and replacing it would silently break
   // the user's link.
   let writePath = modelsPath;
-  if (lstatSync(modelsPath, { throwIfNoEntry: false })?.isSymbolicLink()) {
+  if (lstatSync(/*turbopackIgnore: true*/ modelsPath, { throwIfNoEntry: false })?.isSymbolicLink()) {
     try {
-      writePath = realpathSync(modelsPath);
+      writePath = realpathSync(/*turbopackIgnore: true*/ modelsPath);
     } catch {
       throw new ModelsConfigReadError(`Failed to write ${modelsPath}: dangling symbolic link`);
     }

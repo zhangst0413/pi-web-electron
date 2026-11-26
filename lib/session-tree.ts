@@ -9,7 +9,7 @@
  *
  * Pin and archive flags are keyed by the family ROOT session id. An archived
  * family returns on its own when the root session gets a newer message
- * (`root.modified`, not `latestModified`: subagent activity alone does not
+ * (`root.modified`, not `latestModified`: a member's activity alone does not
  * bring it back) or while any member is running.
  *
  * Groups keep the stored project order (`projectOrder`): activity never moves
@@ -68,7 +68,7 @@ export type SidebarRow =
   | { kind: "archive-group"; key: string; project: SidebarProject; count: number; expanded: boolean };
 
 export interface SessionTreeInput {
-  /** The full catalog (allSessions), subagents included. */
+  /** The full catalog (allSessions), side chats included. */
   sessions: readonly SessionInfo[];
   uiState: SessionUiState;
   runningIds: ReadonlySet<string>;
@@ -131,17 +131,17 @@ function compareDesc(a: number, b: number): number {
 }
 
 export function familyIds(family: SessionFamily): string[] {
-  return [family.root.id, ...family.subagents.map((session) => session.id)];
+  return [family.root.id, ...family.members.map((session) => session.id)];
 }
 
 function anyMemberIn(family: SessionFamily, ids: ReadonlySet<string>): boolean {
   if (ids.size === 0) return false;
-  return ids.has(family.root.id) || family.subagents.some((session) => ids.has(session.id));
+  return ids.has(family.root.id) || family.members.some((session) => ids.has(session.id));
 }
 
 function isMember(family: SessionFamily, sessionId: string | null): boolean {
   if (!sessionId) return false;
-  return family.root.id === sessionId || family.subagents.some((session) => session.id === sessionId);
+  return family.root.id === sessionId || family.members.some((session) => session.id === sessionId);
 }
 
 /**
@@ -664,7 +664,7 @@ export function archivedFamilyIds(
 /**
  * A project group's "Delete all sessions": root ids of every family of
  * `projectKey` that has a file, pinned and archived ones included (the
- * server deletes their subagent sessions with them), and how many families
+ * server deletes their side chats with them), and how many families
  * it keeps because they run or wait for input: deleting one would stop its
  * run. Transient families have no file to delete.
  */
@@ -952,7 +952,7 @@ export interface SessionRowLocation {
 /**
  * Where the main tree shows a session's row: its family's row in the pinned
  * section or in its project's group, keyed as `buildSessionTree()` keys it
- * (a subagent or a side chat is its root's row), and what hides it now: the
+ * (a side chat is its root's row), and what hides it now: the
  * pinned section folded, or the group folded on purpose. A group closed
  * only because its project is not the current one needs nothing: opening
  * a session makes its project current. Null when the main tree has no row

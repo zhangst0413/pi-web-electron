@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getRpcSession } from "@/lib/rpc-manager";
-import { hasUnsettledSubagentRun } from "@/lib/subagent-runtime";
 
 // POST /api/agent/[id]/lease - A page renews the session it has selected, whether or not it
 // holds the event stream: the session's idle countdown starts over (renewIdleTimer()), so it
@@ -22,7 +21,5 @@ export async function POST(
     running: alive && session!.isRunning(),
     // An extension dialog waiting for an answer.
     awaitingInput: alive && session!.isAwaitingInput(),
-    // A subagent under this session, at any depth, whose end starts a turn here.
-    subagentsActive: hasUnsettledSubagentRun(id),
   }, { headers: { "Cache-Control": "no-store" } });
 }

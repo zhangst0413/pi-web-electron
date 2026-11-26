@@ -52,9 +52,7 @@ import { getToolExecutionProgress } from "@/lib/tool-execution-progress";
 import { CODEMODE_TOOL_NAME, getCodemodeProgress } from "@/lib/codemode-view";
 import { updateExtensionWidgets } from "@/lib/extension-widgets";
 import { createShownNotices, extensionErrorMessage } from "@/lib/startup-issues";
-import { bareMcpOpensSettings } from "@/lib/mcp-command";
 import { copyText } from "@/lib/clipboard";
-import type { SettingsSection } from "@/lib/settings-navigation";
 import { withTranscriptNotices, type TranscriptNotice } from "@/lib/transcript-notices";
 import { applyToolClockEvent, endedToolClocks, NO_TOOL_CLOCKS, withoutToolClock, type ToolClocks } from "@/lib/tool-clock";
 import {
@@ -221,11 +219,6 @@ export interface PendingBash {
 export interface AgentEndInfo {
   /** The run was stopped (Esc, Stop, another client's abort), not finished: nothing to announce. */
   aborted: boolean;
-  /**
-   * Subagents of this session are still at work and will report back with a run of their own:
-   * the task is not done yet, so nothing to announce either (#1434).
-   */
-  subagentsActive?: boolean;
 }
 
 export interface UseAgentSessionOptions {
@@ -256,8 +249,6 @@ export interface UseAgentSessionOptions {
   /** Registers the debug panel's reader of this page's stream and lease: it reads refs only, never a request. */
   onDebugSnapshotReaderChange?: (reader: (() => DebugClientSession) | null) => void;
   onSessionStatsPanelOpen?: () => void;
-  /** Opens Settings on a section; a bare `/mcp` the built-in MCP extension owns opens Settings › MCP. */
-  onOpenSettings?: (section: SettingsSection) => void;
   setToolPreset?: (preset: ToolPreset) => void;
   deferInitialScroll?: boolean;
   /** A fresh composer's model and reasoning picks to start with: the composer it replaces had them. */
@@ -461,7 +452,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const {
     session, newSessionCwd, newSessionDraftKey, onAgentEnd, onSessionEnded, onToolEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSideSession,
     modelsRefreshKey, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsPanelOpen,
-    onOpenSettings, onDebugSnapshotReaderChange,
+    onDebugSnapshotReaderChange,
   } = opts;
 
   const isNew = session === null && newSessionCwd !== null;
@@ -598,8 +589,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const ensuringNewSessionRef = useRef<Promise<string | null> | null>(null);
   // The command list as last loaded, and the get_commands request under way, if
-  // any. A bare /mcp reads them to tell whose /mcp it is (handleBuiltinSlashCommand).
-  // The generation moves on with every request and every clear, and only a request
+  // any. The generation moves on with every request and every clear, and only a request
   // still current writes its answer: one that set_tools outdated (or a newer request)
   // would otherwise put back the list of a session that is no longer there.
   const slashCommandsRef = useRef<SlashCommandInfo[]>([]);
@@ -1252,18 +1242,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
   const loadSlashCommands = useCallback(async () => (await requestSlashCommands()) ?? [], [requestSlashCommands]);
 
-  // The list a bare /mcp is decided by: the request under way (the palette starts
-  // one as "/mcp" is typed, often still unanswered at Enter), else the list already
-  // loaded, else a new request. Null when it cannot be read: guessing would either
-  // swallow another extension's /mcp or send one Settings should have taken.
-  const slashCommandsForMcp = useCallback(async (): Promise<SlashCommandInfo[] | null> => {
-    const pending = slashCommandsLoadRef.current;
-    const known = slashCommandsRef.current;
-    if (!pending && known.length > 0) return known;
-    const loaded = await (pending ?? requestSlashCommands()).catch(() => null);
-    return loaded ?? (known.length > 0 ? known : null);
-  }, [requestSlashCommands]);
-
   const cancelEventStreamGrace = useCallback(() => {
     eventStreamGraceGenerationRef.current += 1;
     eventStreamGraceActiveRef.current = false;
@@ -1352,7 +1330,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
             reply: reply && {
               running: reply.running === true,
               awaitingInput: reply.awaitingInput === true,
-              subagentsActive: reply.subagentsActive === true,
             },
           };
         } catch {}
@@ -1370,7 +1347,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   // page keeps it without asking. Otherwise the grace ends with a lease request,
   // and the stream closes only if its reply shows nothing under way
   // (canReleaseHiddenEventStream(): a run another tab started, an extension
-  // dialog, a subagent whose end starts a turn here); the check repeats each
+  // dialog); the check repeats each
   // grace while hidden. A run that settles while hidden starts the grace again,
   // which also covers extension follow-ups right after prompt_done.
   const eventStreamIdle = !agentRunning && !bashRunning && !isCompacting
@@ -1628,10 +1605,10 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     return wasRunning;
   }, [dispatch]);
 
-  const notifyPromptStage = useCallback((runId: number, aborted = false, subagentsActive = false) => {
+  const notifyPromptStage = useCallback((runId: number, aborted = false) => {
     if (notifiedPromptRunIdRef.current === runId) return false;
     notifiedPromptRunIdRef.current = runId;
-    onAgentEnd?.({ aborted, ...(subagentsActive ? { subagentsActive } : {}) });
+    onAgentEnd?.({ aborted });
     return true;
   }, [onAgentEnd]);
 
@@ -2020,7 +1997,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           scheduleEventStreamClose(sid);
         }
         if (wasRunning) {
-          onAgentEnd?.({ aborted: event.aborted === true, ...(event.subagentsActive === true ? { subagentsActive: true } : {}) });
+          onAgentEnd?.({ aborted: event.aborted === true });
         }
         break;
       }
@@ -2031,7 +2008,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           const promptWasPending = rpcPromptPendingRef.current;
           rpcPromptPendingRef.current = false;
           optimisticUserMessageKeyRef.current = null;
-          const firstNotification = notifyPromptStage(runId, event.aborted === true, event.subagentsActive === true);
+          const firstNotification = notifyPromptStage(runId, event.aborted === true);
           if (!promptWasPending && !firstNotification) break;
 
           const sid = sessionIdRef.current;
@@ -2624,7 +2601,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     }
   }, [onSessionForked, opts.chatInputRef, translate]);
   const canForkMissingCwd = Boolean(missingCwd) && !isNew && Boolean(session?.id)
-    && session?.relation?.kind !== "subagent" && session?.relation?.kind !== "side";
+    && session?.relation?.kind !== "side";
 
   const handleNavigate = useCallback(async (entryId: string): Promise<boolean> => {
     if (bashRunningRef.current) return false;
@@ -2924,7 +2901,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const startSideChat = useCallback(async (prompt: string | null, name?: string): Promise<string | null> => {
     // The route refuses these too; a tab has nowhere to open another tab from.
     const relationKind = opts.session?.relation?.kind;
-    if (relationKind === "side" || relationKind === "subagent") return translate(SIDE_REFUSAL_MESSAGES[relationKind]);
+    if (relationKind === "side") return translate(SIDE_REFUSAL_MESSAGES[relationKind]);
     // Unlike the other built-ins, no ensureNewSession(): forking a session
     // that does not exist yet has nothing to inherit.
     const sourceId = sessionIdRef.current;
@@ -3022,20 +2999,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           return complete({ handled: true, action: "openSessionStats" });
         }
 
-        case "mcp": {
-          // Only a bare /mcp, and only when pi's built-in MCP extension owns it or
-          // nothing does (lib/mcp-command.ts): another extension's /mcp is sent as
-          // before, and so is every subcommand, since `/mcp login`, `logout` and
-          // `reconnect` act on this session's own connections. Returning before
-          // onSend leaves no "/mcp" bubble and no sidebar row for a new chat; a
-          // streaming run is not touched.
-          if (args || !onOpenSettings) return { handled: false };
-          const commands = await slashCommandsForMcp();
-          if (!commands || !bareMcpOpensSettings(commands)) return { handled: false };
-          onOpenSettings("mcp");
-          return complete({ handled: true, action: "openSettings" });
-        }
-
         case "copy": {
           if (!sid) return complete({ handled: true, error: "No active session" });
           const data = await sendAgentCommand<LastAssistantTextResponse>(sid, { type: "get_last_assistant_text" });
@@ -3081,7 +3044,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     } catch (e) {
       return complete({ handled: true, error: e instanceof Error ? e.message : String(e) });
     }
-  }, [activeLeafId, addNotice, ensureNewSession, handleCompact, isCompacting, loadModels, loadSession, loadSlashCommands, loadTools, promoteNewSession, onOpenSettings, onSessionForked, onSessionStatsPanelOpen, opts.chatInputRef, sessionStats, slashCommandsForMcp, startSideChat, translate]);
+  }, [activeLeafId, addNotice, ensureNewSession, handleCompact, isCompacting, loadModels, loadSession, loadSlashCommands, loadTools, promoteNewSession, onSessionForked, onSessionStatsPanelOpen, opts.chatInputRef, sessionStats, startSideChat, translate]);
 
   // Let AgentSession.prompt decide atomically whether to queue against the
   // current run or start a new turn if it settled while the request was in

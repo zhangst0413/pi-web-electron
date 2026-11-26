@@ -337,14 +337,8 @@ export interface BranchPreview {
   text: string;
 }
 
-export type SubagentSessionStatus =
-  | "starting"
-  | "queued"
-  | "running"
-  | "completed"
-  | "failed"
-  | "aborted"
-  | "interrupted";
+/** How a family member of the open chat is doing: running, or settled. */
+export type FamilyMemberStatus = "running" | "completed" | "failed" | "aborted";
 
 export interface SessionTreeNode {
   entry: SessionEntry;
@@ -365,18 +359,11 @@ export interface SessionInfo {
   firstMessage: string;
   /** True while the sidebar has only header/stat metadata for this session. */
   detailsPending?: boolean;
-  parentSessionId?: string; // source session for a fork, or parent session for a subagent or side chat
-  /** How this session relates to another session. Forks remain top-level in the
-   *  UI; subagent and side relations form a visible parent/child tree. */
+  parentSessionId?: string; // source session for a fork, or parent session for a side chat
+  /** How this session relates to another session. Forks remain top-level in the UI;
+   *  a side relation forms a visible parent/child tree. */
   relation?:
     | { kind: "fork"; originSessionId?: string }
-    | {
-        kind: "subagent";
-        parentSessionId: string;
-        profile: string;
-        description: string;
-        status: SubagentSessionStatus;
-      }
     | { kind: "side"; parentSessionId: string };
   /** Main repo root shared by all worktrees of this cwd (cwd itself for non-git dirs).
    *  Always set by the server; optional because the client builds transient

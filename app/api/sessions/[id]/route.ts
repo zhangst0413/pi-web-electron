@@ -9,14 +9,13 @@ import {
   invalidateSessionManagerCache,
   buildSessionContext,
 } from "@/lib/session-reader";
-import { getRpcSession, renameRpcSession, subagentDisplayStatus } from "@/lib/rpc-manager";
+import { getRpcSession, renameRpcSession } from "@/lib/rpc-manager";
 import { projectTreeForResponse, toSummaryTree } from "@/lib/project-tree";
 import { computeSessionTotalActiveMs } from "@/lib/session-timing";
 import { computeSessionStats } from "@/lib/session-stats";
 import { startServerPerf } from "@/lib/perf";
 import { computeSessionRevision } from "@/lib/session-revision";
 import type { SessionEntry } from "@/lib/types";
-import { readSubagentRun, readSubagentSessionResources } from "@/lib/subagents";
 import { readSideRelation, sideOwnEntries } from "@/lib/side-session";
 import { readSessionToolSelection } from "@/lib/session-tool-selection";
 import { deleteSessions } from "@/lib/session-delete";
@@ -104,16 +103,12 @@ export async function GET(
 
     const header = sm.getHeader();
     let modified = header?.timestamp ?? new Date().toISOString();
-    try { modified = statSync(filePath).mtime.toISOString(); } catch { /* use header timestamp */ }
+    try { modified = statSync(/* turbopackIgnore: true */ filePath).mtime.toISOString(); } catch { /* use header timestamp */ }
     const parentSessionId = header?.parentSession
       ? await resolveSessionIdByPath(header.parentSession)
       : undefined;
-    const subagent = header
-      ? readSubagentRun(entries as never, header.id, filePath)
-      : null;
-    const side = !subagent && header ? readSideRelation(entries as never) : null;
-    const toolNames = readSubagentSessionResources(entries as never)?.tools
-      ?? readSessionToolSelection(entries as never);
+    const side = header ? readSideRelation(entries as never) : null;
+    const toolNames = readSessionToolSelection(entries as never);
     const info = header ? (await attachSessionProjectInfo([{
       path: filePath,
       id: header.id,
@@ -129,14 +124,12 @@ export async function GET(
           })()
         : "(no messages)",
       parentSessionId,
-      ...(subagent
-        ? { relation: { kind: "subagent" as const, parentSessionId: subagent.parentSessionId, profile: subagent.profile, description: subagent.description, status: subagentDisplayStatus(header.id, subagent.status) } }
-        : side
-          ? { relation: { kind: "side" as const, ...side } }
-          : header.parentSession
-            ? { relation: { kind: "fork" as const, ...(parentSessionId ? { originSessionId: parentSessionId } : {}) } }
-            : {}),
-      transient: !filePath || !existsSync(filePath),
+      ...(side
+        ? { relation: { kind: "side" as const, ...side } }
+        : header.parentSession
+          ? { relation: { kind: "fork" as const, ...(parentSessionId ? { originSessionId: parentSessionId } : {}) } }
+          : {}),
+      transient: !filePath || !existsSync(/* turbopackIgnore: true */ filePath),
     }]))[0] : null;
 
     return perf?.attach(NextResponse.json(
@@ -207,7 +200,7 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/sessions/[id] - the session and the subagent sessions below it (lib/session-delete.ts).
+// DELETE /api/sessions/[id] - the session and the side chats below it (lib/session-delete.ts).
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }

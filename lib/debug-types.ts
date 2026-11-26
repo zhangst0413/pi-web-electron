@@ -22,7 +22,6 @@ export interface DebugWrapperRun {
   retrying: boolean;
   /** Steering and follow-up messages the SDK holds (a count, never their text). */
   queuedMessages: number;
-  waitingForMcp: boolean;
   runningTools: number;
   mutatingCommands: number;
   replacement: "fork" | "clone" | null;
@@ -32,8 +31,8 @@ export interface DebugWrapperIdle {
   /** `PI_WEB_IDLE_TIMEOUT_MS` in effect; 0 = disabled (Stop still arms its forced deadline). */
   timeoutMs: number;
   /**
-   * When the idle timer fires next. A check, not a close: a run, an extension's liveness
-   * provider or a subagent run of this session waiting for its start re-arms a full timeout then, unless `forcedByStop`; a page's lease renewal moves it
+   * When the idle timer fires next. A check, not a close: a run or an extension's liveness
+   * provider re-arms a full timeout then, unless `forcedByStop`; a page's lease renewal moves it
    * a full timeout on. Null: not armed.
    */
   nextCheckAt: number | null;
@@ -48,7 +47,6 @@ export interface DebugWrapperSnapshot {
   state: "alive" | "closing";
   /** A wrapper built before a hot reload (dev): only `state` and `run.running` are known. */
   stale: boolean;
-  subagent: boolean;
   chatOnly: boolean;
   createdAt: number | null;
   startedAt: number | null;
@@ -111,47 +109,6 @@ export interface DebugServerPage {
   fileWatch: number;
 }
 
-export interface DebugSubagentRun {
-  sessionId: string;
-  parentSessionId: string;
-  status: string;
-  profile: string | null;
-  background: boolean;
-  resumed: boolean;
-  /** When this run (or resume) entered the run map. */
-  dispatchedAt: number | null;
-  abortRequested: boolean;
-  mcpWaiting: boolean;
-}
-
-/** A background run's completion still being delivered to its parent (`notifyParent()`). */
-export interface DebugParentNotification {
-  sessionId: string;
-  parentSessionId: string;
-  since: number | null;
-}
-
-export interface DebugMcpServer {
-  name: string;
-  scope: string;
-  state: string;
-  hasError: boolean;
-  released: boolean;
-}
-
-export interface DebugMcpHost {
-  active: boolean;
-  disposed: boolean;
-  runActive: boolean;
-  /** `PI_WEB_MCP_IDLE_MS`; 0 = never released. */
-  idleMs: number;
-  /** When idle servers are let go; null while a run is active or nothing is connected. */
-  idleReleaseAt: number | null;
-  servers: DebugMcpServer[];
-  /** Servers that are configured but not registered or not trusted. */
-  problems: number;
-}
-
 export interface DebugSessionDetail {
   sessionId: string;
   wrapper: DebugWrapperSnapshot | null;
@@ -161,14 +118,6 @@ export interface DebugSessionDetail {
   /** Null: the registry predates this server code (dev hot reload) and cannot list. */
   providers: DebugLivenessProvider[] | null;
   eventStreams: DebugEventStream[];
-  subagents: {
-    /** `hasUnsettledSubagentRun()`: what keeps a hidden page's stream open. */
-    active: boolean;
-    runs: DebugSubagentRun[];
-    notifications: DebugParentNotification[];
-  };
-  /** Null: no wrapper, or a session without an MCP host (Chat only, MCP unavailable). */
-  mcp: DebugMcpHost | null;
 }
 
 /** One session the server holds something for: a wrapper or an event stream. */
@@ -177,7 +126,6 @@ export interface DebugSessionSummary {
   state: "alive" | "closing" | "none";
   running: boolean;
   awaitingInput: boolean;
-  subagent: boolean;
   eventStreams: number;
   /**
    * Extension liveness providers registered for the session. Only the detail asks them whether
@@ -281,7 +229,6 @@ export interface DebugEventConnectionSnapshot {
 export interface DebugLeaseReplySummary {
   running: boolean;
   awaitingInput: boolean;
-  subagentsActive: boolean;
 }
 
 export interface DebugClientLease {

@@ -99,8 +99,8 @@ test("scrolling keeps the focused session and the viewport mounted without expan
   }
 });
 
-test("subagents fold into their main session row, which carries their running, unread and selected state", () => {
-  const child = session("child", { relation: { kind: "subagent", parentSessionId: "main", profile: "explore", description: "", status: "running" } });
+test("side chats fold into their main session row, which carries their running, unread and selected state", () => {
+  const child = session("child", { relation: { kind: "side", parentSessionId: "main" } });
   const { rows } = buildSessionTree(treeInput({
     sessions: [session("main"), child],
     runningIds: new Set(["child"]),
@@ -129,7 +129,7 @@ test("a deleted family's stored drafts go with it, only once the server deleted 
       setConfirmDeleteRootId() {},
       loadSessions: async () => {},
     });
-    await performDelete({ root: session("main"), subagents: [session("side"), session("worker")] });
+    await performDelete({ root: session("main"), members: [session("side"), session("worker")] });
     assert.deepEqual(cleared, ok ? ["main", "side", "worker"] : []);
     assert.deepEqual(deleted, ["main"]);
   }

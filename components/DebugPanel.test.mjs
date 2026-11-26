@@ -178,16 +178,16 @@ function page(extra = {}) {
 
 function summary(sessionId, extra = {}) {
   return {
-    sessionId, state: "alive", running: false, awaitingInput: false, subagent: false,
+    sessionId, state: "alive", running: false, awaitingInput: false,
     eventStreams: 0, providers: 0, nextIdleCheckAt: null, forcedByStop: false, starts: 1, ...extra,
   };
 }
 
 function wrapper(extra = {}) {
   return {
-    sessionId: "s1", state: "alive", stale: false, subagent: false, chatOnly: false,
+    sessionId: "s1", state: "alive", stale: false, chatOnly: false,
     createdAt: SERVER - 6 * MINUTE, startedAt: SERVER - 6 * MINUTE, closingAt: null, extensions: "bound",
-    run: { running: false, streaming: false, promptRunning: false, pendingPrompts: 0, bashRunning: false, compacting: false, retrying: false, queuedMessages: 0, waitingForMcp: false, runningTools: 0, mutatingCommands: 0, replacement: null },
+    run: { running: false, streaming: false, promptRunning: false, pendingPrompts: 0, bashRunning: false, compacting: false, retrying: false, queuedMessages: 0, runningTools: 0, mutatingCommands: 0, replacement: null },
     idle: { timeoutMs: 10 * MINUTE, nextCheckAt: SERVER + 8 * MINUTE + 30 * SECOND, lastResetAt: SERVER - 90 * SECOND, forcedByStop: false },
     awaitingInput: false, pendingUiRequests: 0, customUis: 0, eventListeners: 2,
     lastEvent: { type: "agent_end", at: SERVER - 90 * SECOND }, lastCommand: { type: "prompt", at: SERVER - 2 * MINUTE },
@@ -216,7 +216,7 @@ function reply() {
       summary("other-session", { state: "closing" }),
       summary("notes-1", { awaitingInput: true, eventStreams: 1, nextIdleCheckAt: SERVER + 3 * MINUTE }),
       summary("s1", { eventStreams: 2, providers: 1, nextIdleCheckAt: SERVER + 8 * MINUTE + 30 * SECOND, starts: 2 }),
-      summary("sub-xyz-789", { subagent: true, running: true, eventStreams: 1 }),
+      summary("sub-xyz-789", { running: true, eventStreams: 1 }),
     ],
     session: {
       sessionId: "s1",
@@ -228,8 +228,6 @@ function reply() {
         { holder: "page-other-456", address: "192.168.1.20", client: "Safari · iOS", openedAt: SERVER - 6 * MINUTE, connectedAt: SERVER - 6 * MINUTE, lastWriteAt: SERVER - 3 * SECOND, droppedEvents: 0, queuedBytes: 0 },
         { holder: "page-mine-123", address: "127.0.0.1", client: "Chrome · macOS", openedAt: SERVER - 5 * MINUTE, connectedAt: SERVER - 5 * MINUTE, lastWriteAt: SERVER - 3 * SECOND, droppedEvents: 0, queuedBytes: 0 },
       ],
-      subagents: { active: false, runs: [], notifications: [] },
-      mcp: null,
     },
   };
 }
@@ -247,7 +245,7 @@ function withDetail(extra) {
 
 const catalog = [
   { id: "s1", name: "当前 chat", path: "", cwd: "/work/app", projectRoot: "/work/app", created: "", modified: "2026-10-01T00:00:00Z", messageCount: 2, firstMessage: "" },
-  { id: "sub-xyz-789", name: "", path: "", cwd: "/work/app", projectRoot: "/work/app", created: "", modified: "2026-10-02T00:00:00Z", messageCount: 1, firstMessage: "explore the repo", relation: { kind: "subagent", parentSessionId: "s1", profile: "explore", description: "", status: "running" } },
+  { id: "sub-xyz-789", name: "", path: "", cwd: "/work/app", projectRoot: "/work/app", created: "", modified: "2026-10-02T00:00:00Z", messageCount: 1, firstMessage: "explore the repo", relation: { kind: "side", parentSessionId: "s1" } },
   { id: "notes-1", name: "Weekly plan", path: "", cwd: "/work/notes", projectRoot: "/work/notes", created: "", modified: "2026-10-09T00:00:00Z", messageCount: 3, firstMessage: "" },
 ];
 
@@ -457,7 +455,7 @@ test("the meter's slots say what holds them: SSE, 文件, 终端; a connecting o
   assert.deepEqual([...zhMeter.matchAll(/class="debug-badge[^"]*"[^>]*>([^<]*)</g)].map((match) => match[1]), ["SSE", "SSE", "文件", "终端"]);
 });
 
-test("sessions on the server: grouped by project, the chat's first and not repeated, subagents under their root", () => {
+test("sessions on the server: grouped by project, the chat's first and not repeated, members under their root", () => {
   assert.deepEqual(sessionLines(render()), [
     "# app",
     "当前 chat · 当前聊天",
@@ -507,63 +505,14 @@ test("a chat that moved on waits for its own answer; a hidden page pauses", () =
 test("server states, run statuses and close reasons read as words, not codes", () => {
   const html = render({
     page: page({ client: client({ connection: { ...client().connection, lastClose: { reason: "set_tools", at: LOCAL - 4 * SECOND } } }) }),
-    server: withDetail({
-      subagents: {
-        active: true,
-        runs: [
-          { sessionId: "sub-queued-1", parentSessionId: "s1", status: "queued", profile: "general", background: true, resumed: false, dispatchedAt: SERVER - 2 * SECOND, abortRequested: false, mcpWaiting: false },
-          { sessionId: "sub-newer-2", parentSessionId: "s1", status: "paused", profile: null, background: false, resumed: false, dispatchedAt: null, abortRequested: true, mcpWaiting: false },
-        ],
-        notifications: [{ sessionId: "sub-queued-1", parentSessionId: "s1", since: SERVER - SECOND }],
-      },
-      mcp: {
-        active: true, disposed: false, runActive: false, idleMs: 0, idleReleaseAt: null, problems: 0,
-        servers: [
-          { name: "github", scope: "global", state: "needs-auth", hasError: false, released: false },
-          { name: "later", scope: "project", state: "warming", hasError: false, released: false },
-        ],
-      },
-    }),
   });
   const stateTitle = titles(html).find((title) => title.startsWith("readyState 1"));
   assert.ok(stateTitle?.split("\n").includes("上次关闭 工具已更改 · 4秒前"), stateTitle);
   assert.ok(stateTitle.split("\n").includes("页面需要 是"));
   assert.ok(stateTitle.split("\n").includes("隐藏过 1 次 · 上次隐藏于2分00秒前"));
-  const text = visibleText(html);
-  assert.ok(text.includes("general 排队中 · 后台 · 12秒前"), text);
-  // A value newer than the panel's maps reads as it came.
-  assert.ok(text.includes("sub-newe paused 已请求中止"));
-  assert.ok(text.includes("正在通知 s1 · 11秒前"));
-  assert.ok(text.includes("有未结束的运行"));
-  assert.ok(titles(html).includes("github (global) · 需要登录"));
-  assert.ok(titles(html).includes("later (project) · warming"));
 
   const noReason = render({ page: page({ client: client({ connection: { ...client().connection, lastClose: { reason: null, at: LOCAL - SECOND } } }) }) });
   assert.ok(titles(noReason).some((title) => title.split("\n").includes("上次关闭 — · 1秒前")));
-});
-
-test("an MCP server's state is never the dot's hue alone: words after the name, and the pill's name", () => {
-  const servers = [
-    { name: "github", scope: "global", state: "connected", hasError: false, released: false },
-    { name: "linear", scope: "project", state: "needs-auth", hasError: false, released: false },
-    { name: "fs", scope: "global", state: "connected", hasError: false, released: true },
-    { name: "sentry", scope: "global", state: "failed", hasError: true, released: false },
-    { name: "jira", scope: "global", state: "connected", hasError: true, released: false },
-  ];
-  const html = render({
-    server: withDetail({ mcp: { active: true, disposed: false, runActive: false, idleMs: 0, idleReleaseAt: null, problems: 1, servers } }),
-  });
-  const card = detailOf(html);
-  const pill = (name) => card.match(new RegExp(`<span class="debug-pill" role="img"[^>]*>(?:(?!</span></span>).)*?>${name}</span>.*?</span>(?=<span class="debug-(?:pill|chip)|</div>)`))?.[0];
-  assert.match(pill("github"), /^<span class="debug-pill" role="img" aria-label="github \(global\) · 已连接" title="github \(global\) · 已连接"><span class="debug-dot is-ok" aria-hidden="true"><\/span><span>github<\/span><\/span>$/);
-  assert.match(pill("linear"), /aria-label="linear \(project\) · 需要登录"[^>]*><span class="debug-dot is-warning" aria-hidden="true"><\/span><span>linear<\/span><span class="debug-pill-state">· 需要登录<\/span><\/span>$/);
-  // Let go while idle: a dim ring and a dim name, no state word (it was connected).
-  assert.match(pill("fs"), /aria-label="fs \(global\) · 已连接 · 已释放"[^>]*><span class="debug-dot is-dim is-ring" aria-hidden="true"><\/span><span class="is-dim">fs<\/span><\/span>$/);
-  assert.match(pill("sentry"), /aria-label="sentry \(global\) · 未能连接 · 错误"[^>]*><span class="debug-dot is-error" aria-hidden="true"><\/span><span>sentry<\/span><span class="debug-pill-state">· 未能连接<\/span><\/span>$/);
-  // Red beside a green dot of the same shape: the error is written out too.
-  assert.match(pill("jira"), /<span class="debug-dot is-error" aria-hidden="true"><\/span><span>jira<\/span><span class="debug-pill-state">· 错误<\/span><\/span>$/);
-  const text = visibleText(card);
-  assert.ok(text.includes("linear · 需要登录") && text.includes("sentry · 未能连接"), text);
 });
 
 test("the run's chips show only what is true: no chip row while idle, amber for what waits", () => {

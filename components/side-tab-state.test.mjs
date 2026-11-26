@@ -12,18 +12,18 @@ const sessions = [
 
 test("side tabs return only for their main session, excluding other chats in the same workspace", () => {
   const raw = JSON.stringify({ tabs: [
-    { sessionId: "side-a", label: "Question", side: true },
-    { sessionId: "side-a", label: "Duplicate", side: true },
-    { sessionId: "side-b", label: "Other", side: true },
-    { sessionId: "main-a", label: "Main", side: true },
-    { sessionId: "deleted", label: "Gone", side: true },
+    { sessionId: "side-a", label: "Question" },
+    { sessionId: "side-a", label: "Duplicate" },
+    { sessionId: "side-b", label: "Other" },
+    { sessionId: "main-a", label: "Main" },
+    { sessionId: "deleted", label: "Gone" },
   ], activeId: "agent:side-a", open: true });
   assert.deepEqual(restoreSideTabs(raw, "main-a", sessions), {
-    tabs: [{ sessionId: "side-a", label: "Question", side: true }],
+    tabs: [{ sessionId: "side-a", label: "Question" }],
     activeId: "agent:side-a", open: true,
   });
   assert.deepEqual(restoreSideTabs(raw, "main-b", sessions), {
-    tabs: [{ sessionId: "side-b", label: "Other", side: true }],
+    tabs: [{ sessionId: "side-b", label: "Other" }],
     activeId: null, open: true,
   });
   assert.notEqual(sideTabsKey("main-a"), sideTabsKey("main-b"));
@@ -40,7 +40,7 @@ test("a side tab saved for a main session that is not shown comes back active wi
   const raw = appendSideTab(appendSideTab(null, "side-a", "Side chat"), "side-a2", "Side chat");
   const all = [...sessions, { id: "side-a2", projectKey: "/same", relation: { kind: "side", parentSessionId: "main-a" } }];
   assert.deepEqual(restoreSideTabs(raw, "main-a", all), {
-    tabs: [{ sessionId: "side-a", label: "Side chat", side: true }, { sessionId: "side-a2", label: "Side chat", side: true }],
+    tabs: [{ sessionId: "side-a", label: "Side chat" }, { sessionId: "side-a2", label: "Side chat" }],
     activeId: "agent:side-a2", open: true,
   });
   assert.equal(JSON.parse(appendSideTab("{", "side-a", "Side chat")).tabs.length, 1);

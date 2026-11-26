@@ -8,7 +8,7 @@ import type { SessionInfo } from "@/lib/types";
 
 type ChatProps = ComponentProps<typeof ChatWindow>;
 
-interface Props extends Pick<ChatProps, "modelsRefreshKey" | "onOpenFile" | "onOpenSubagent" | "onToolEnd" | "onFilesUploaded" | "initialPrompt" | "onInitialPromptConsumed" | "soundEnabled" | "onSoundToggle" | "playDoneSound" | "unlockAudio" | "holdAudio" | "quoteSelectionEnabled" | "onSessionForked" | "onSessionEnded" | "onOpenSettings"> {
+interface Props extends Pick<ChatProps, "modelsRefreshKey" | "onOpenFile" | "onToolEnd" | "onFilesUploaded" | "initialPrompt" | "onInitialPromptConsumed" | "soundEnabled" | "onSoundToggle" | "playDoneSound" | "unlockAudio" | "holdAudio" | "quoteSelectionEnabled" | "onSessionForked" | "onSessionEnded"> {
   sessionId: string;
   running: boolean;
 }
@@ -16,8 +16,7 @@ interface Props extends Pick<ChatProps, "modelsRefreshKey" | "onOpenFile" | "onO
 const RETRY_MS = 1000;
 
 /**
- * A subagent's or side chat's right-panel tab: the chat, scoped to that
- * session. It is never the page's main chat: no URL, no sidebar row, and the
+ * A side chat's right-panel tab: the chat, scoped to that session. It is never the page's main chat: no URL, no sidebar row, and the
  * page's global shortcuts stay with the main chat. Info is fetched here because
  * a tab opens by id, and again while a run just started has no session to read.
  */

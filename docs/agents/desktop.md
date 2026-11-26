@@ -45,7 +45,7 @@ Everything the app writes lives beside the executable, not on C:
 
 ```
 <install dir>/pi-web-data/
-  agent/            PI_CODING_AGENT_DIR: sessions, settings.json, models.json, MCP…
+  agent/            PI_CODING_AGENT_DIR: sessions, settings.json, models.json…
   chromium/         Electron's userData: localStorage (theme, prefs), caches
   logs/server.log   the child process's output
 ```

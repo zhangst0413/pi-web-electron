@@ -5,7 +5,6 @@ export const SIDE_REFUSAL_MESSAGES = {
   not_found: "sideChat.error.notFound",
   unsaved: "sideChat.error.unsaved",
   empty: "sideChat.error.empty",
-  subagent: "sideChat.error.subagent",
   side: "sideChat.error.side",
 } as const;
 

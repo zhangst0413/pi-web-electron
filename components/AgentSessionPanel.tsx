@@ -2,23 +2,24 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/hooks/useI18n";
-import { countRunningSubagents, sideChatTitle } from "@/lib/session-family";
+import { countRunningMembers, sideChatTitle } from "@/lib/session-family";
 import { MAX_SESSION_STATS_IDS, type SessionUsageSummary } from "@/lib/session-stats";
 import { formatActiveDuration, formatCompactCount, formatCostShort } from "@/lib/session-stats-format";
-import type { SessionInfo, SubagentSessionStatus } from "@/lib/types";
+import type { FamilyMemberStatus, SessionInfo } from "@/lib/types";
 import { DeleteConfirm } from "./SessionTree";
 import { TrashIcon } from "./SidebarIcons";
 
 interface Props {
   rootSession: SessionInfo;
-  subagents: SessionInfo[];
+  /** The family's side chats, and any other session it holds beside the root. */
+  members: SessionInfo[];
   selectedSessionId: string;
   runningSessionIds: ReadonlySet<string>;
   onSelectSession: (session: SessionInfo) => void;
-  /** Subagents with a viewer tab in the open right panel. */
-  openSubagentTabIds: ReadonlySet<string>;
-  /** Opens a subagent's read-only viewer tab in the right panel (the `Agent` card's button), or closes it when open. */
-  onToggleSubagentTab: (sessionId: string, label: string, side?: boolean) => void;
+  /** Members with a viewer tab in the open right panel. */
+  openMemberTabIds: ReadonlySet<string>;
+  /** Opens a member's viewer tab in the right panel, or closes it when open. */
+  onToggleMemberTab: (sessionId: string, label: string, side?: boolean) => void;
   /** Forks the main agent into a side chat and opens its tab; answers the refusal to show, or null. */
   onNewSideChat: () => Promise<string | null>;
   /** Deletes one side chat and its tab; answers the failure to show, or null. */
@@ -139,25 +140,14 @@ export function sessionTitle(session: SessionInfo): string {
   return session.name || session.firstMessage || session.id.slice(0, 12);
 }
 
-/**
- * A subagent row's first line: the session's name, which a spawn sets to the task's description
- * and a resume with a new description renames (#1735), else that first description.
- */
-export function subagentTitle(session: SessionInfo): string {
-  const relation = session.relation?.kind === "subagent" ? session.relation : null;
-  return session.name || relation?.description || sessionTitle(session);
-}
-
-/** A row's icon: a person for the main agent, a bubble for a side chat, a robot for a subagent. */
-export function AgentKindIcon({ kind, size }: { kind: "main" | "side" | "subagent"; size: number }) {
+/** A row's icon: a person for the main chat, a bubble for a side chat. */
+export function AgentKindIcon({ kind, size }: { kind: "main" | "side"; size: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {kind === "main" ? (
         <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>
-      ) : kind === "side" ? (
-        <path d="M21 12a8 8 0 0 1-8 8H5.5a2 2 0 0 1-1.4-3.4A8 8 0 1 1 21 12z" />
       ) : (
-        <><rect x="5" y="7" width="14" height="11" rx="2" /><path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" /></>
+        <path d="M21 12a8 8 0 0 1-8 8H5.5a2 2 0 0 1-1.4-3.4A8 8 0 1 1 21 12z" />
       )}
     </svg>
   );
@@ -176,16 +166,16 @@ function formatRelativeTime(value: string, locale: string): string {
   return formatter.format(Math.round(elapsedHours / 24), "day");
 }
 
-export function statusColor(status: SubagentSessionStatus): string {
-  if (status === "running" || status === "starting") return "var(--accent)";
+export function statusColor(status: FamilyMemberStatus): string {
+  if (status === "running") return "var(--accent)";
   if (status === "completed") return "#16a34a";
   if (status === "failed") return "#dc2626";
   if (status === "aborted") return "#d97706";
   return "var(--text-dim)";
 }
 
-export function StatusIcon({ status }: { status: SubagentSessionStatus }) {
-  if (status === "running" || status === "starting") {
+export function StatusIcon({ status }: { status: FamilyMemberStatus }) {
+  if (status === "running") {
     return (
       <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" opacity="0.25" />
@@ -200,7 +190,7 @@ export function StatusIcon({ status }: { status: SubagentSessionStatus }) {
       </svg>
     );
   }
-  if (status === "aborted" || status === "interrupted") {
+  if (status === "aborted") {
     return (
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
         <circle cx="12" cy="12" r="9" /><path d="M9 9h6v6H9z" />
@@ -248,15 +238,14 @@ function AgentRow({
   onDeleteCancel?: () => void;
 }) {
   const { locale, t } = useI18n();
-  const relation = session.relation?.kind === "subagent" ? session.relation : null;
   const side = session.relation?.kind === "side";
-  const status: SubagentSessionStatus = running ? "running" : relation?.status ?? "completed";
-  const primary = main ? t("agentSwitcher.main") : side ? sideTitle ?? t("agentSwitcher.sideChat") : subagentTitle(session);
-  const profile = side ? t("agentSwitcher.sideChat") : relation?.profile ?? t("agentSwitcher.subagent");
+  const status: FamilyMemberStatus = running ? "running" : "completed";
+  const primary = main ? t("agentSwitcher.main") : sideTitle ?? t("agentSwitcher.sideChat");
+  const profile = t("agentSwitcher.sideChat");
   const modelId = usage?.model?.modelId;
   const thinkingLevel = usage?.thinkingLevel && usage.thinkingLevel !== "off" ? usage.thinkingLevel : undefined;
   // Every side chat has the same name: when it last ran tells two rows apart.
-  const secondary = main ? sessionTitle(session) : side ? formatRelativeTime(session.modified, locale) : profile;
+  const secondary = main ? sessionTitle(session) : formatRelativeTime(session.modified, locale);
   const secondaryTitle = main ? secondary : [
     profile,
     usage?.model ? `${usage.model.provider}/${usage.model.modelId}` : undefined,
@@ -333,7 +322,7 @@ function AgentRow({
         }}
       >
         <span style={{ width: 28, height: 28, display: "grid", placeItems: "center", color: main ? "var(--text-muted)" : "var(--accent)" }}>
-          <AgentKindIcon kind={main ? "main" : side ? "side" : "subagent"} size={17} />
+          <AgentKindIcon kind={main ? "main" : "side"} size={17} />
         </span>
         <span style={{ minWidth: 0 }}>
           <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12, fontWeight: selected ? 600 : 500 }} title={primary}>
@@ -371,7 +360,7 @@ function AgentRow({
         // Greyed, not gone: the row open in the main chat has no tab (one session, one chat),
         // and the rows keep their layout.
         <RowSideButton
-          title={selected ? t("agentSwitcher.openInMainChat") : t(tabShown ? (side ? "sideChat.closeTab" : "subagent.closeTab") : side ? "sideChat.openTab" : "subagent.openTab")}
+          title={selected ? t("agentSwitcher.openInMainChat") : t(tabShown ? "sideChat.closeTab" : "sideChat.openTab")}
           pressed={tabShown}
           disabled={selected}
           onClick={onToggleTab}
@@ -429,7 +418,7 @@ function RowSideButton({ title, pressed, danger, disabled, onClick, children }: 
   );
 }
 
-export function AgentSessionPanel({ rootSession, subagents, selectedSessionId, runningSessionIds, onSelectSession, openSubagentTabIds, onToggleSubagentTab, onNewSideChat, onDeleteSideChat }: Props) {
+export function AgentSessionPanel({ rootSession, members, selectedSessionId, runningSessionIds, onSelectSession, openMemberTabIds, onToggleMemberTab, onNewSideChat, onDeleteSideChat }: Props) {
   const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [newSideChatPending, setNewSideChatPending] = useState(false);
@@ -459,23 +448,22 @@ export function AgentSessionPanel({ rootSession, subagents, selectedSessionId, r
     }
     if (error) setDeleteSideChatError(t("sidebar.deleteFailed", { error }));
   };
-  const sortedSubagents = useMemo(() => [...subagents].sort((a, b) => {
+  const sortedMembers = useMemo(() => [...members].sort((a, b) => {
     const aRunning = runningSessionIds.has(a.id);
     const bRunning = runningSessionIds.has(b.id);
     if (aRunning !== bRunning) return aRunning ? -1 : 1;
     return b.modified.localeCompare(a.modified);
-  }), [runningSessionIds, subagents]);
+  }), [runningSessionIds, members]);
   const normalizedQuery = query.trim().toLowerCase();
-  const visibleSubagents = normalizedQuery
-    ? sortedSubagents.filter((session) => {
-        const relation = session.relation?.kind === "subagent" ? session.relation : null;
+  const visibleMembers = normalizedQuery
+    ? sortedMembers.filter((session) => {
         const sideLabel = session.relation?.kind === "side" ? t("agentSwitcher.sideChat") : null;
-        return [relation?.description, relation?.profile, sideLabel, session.name, session.firstMessage]
+        return [sideLabel, session.name, session.firstMessage]
           .some((value) => value?.toLowerCase().includes(normalizedQuery));
       })
-    : sortedSubagents;
-  const runningCount = countRunningSubagents(subagents, runningSessionIds);
-  const familyIds = useMemo(() => [rootSession.id, ...subagents.map((session) => session.id)], [rootSession.id, subagents]);
+    : sortedMembers;
+  const runningCount = countRunningMembers(members, runningSessionIds);
+  const familyIds = useMemo(() => [rootSession.id, ...members.map((session) => session.id)], [rootSession.id, members]);
   const runningKey = familyIds.filter((id) => runningSessionIds.has(id)).join(",");
   const usage = useAgentUsage(familyIds, runningKey);
   const familyUsage = useMemo(() => {
@@ -518,11 +506,11 @@ export function AgentSessionPanel({ rootSession, subagents, selectedSessionId, r
       <div>
         <div style={{ minHeight: 44, display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", borderBottom: "1px solid var(--border)" }}>
           <strong style={{ fontSize: 12, fontWeight: 600 }}>{t("agentSwitcher.title")}</strong>
-          {subagents.length > 0 && (
+          {members.length > 0 && (
             <span style={{ color: "var(--text-dim)", fontSize: 11 }}>
-              {subagents.length === 1
-                ? t("agentSwitcher.countOne", { count: subagents.length })
-                : t("agentSwitcher.count", { count: subagents.length })}
+              {members.length === 1
+                ? t("agentSwitcher.countOne", { count: members.length })
+                : t("agentSwitcher.count", { count: members.length })}
             </span>
           )}
           <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
@@ -539,7 +527,7 @@ export function AgentSessionPanel({ rootSession, subagents, selectedSessionId, r
             )}
           </span>
         </div>
-        {subagents.length > 8 && (
+        {members.length > 8 && (
           <div style={{ padding: 8, borderBottom: "1px solid var(--border)" }}>
             <input
               type="search"
@@ -571,31 +559,24 @@ export function AgentSessionPanel({ rootSession, subagents, selectedSessionId, r
               {newSideChatError ?? deleteSideChatError}
             </div>
           )}
-          {visibleSubagents.map((session) => (
+          {visibleMembers.map((session) => (
             <AgentRow
               key={session.id}
               session={session}
-              sideTitle={session.relation?.kind === "side" ? sideChatTitle(session, t("agentSwitcher.sideChat"), subagents) : undefined}
+              sideTitle={session.relation?.kind === "side" ? sideChatTitle(session, t("agentSwitcher.sideChat"), members) : undefined}
               selected={session.id === selectedSessionId}
               running={runningSessionIds.has(session.id)}
               usage={usage[session.id]}
               onSelect={() => onSelectSession(session)}
-              tabShown={openSubagentTabIds.has(session.id)}
-              onToggleTab={() => {
-                const relation = session.relation?.kind === "subagent" ? session.relation : null;
-                if (session.relation?.kind === "side") {
-                  onToggleSubagentTab(session.id, t("sideChat.title"), true);
-                  return;
-                }
-                onToggleSubagentTab(session.id, session.name || relation?.description || relation?.profile || sessionTitle(session));
-              }}
+              tabShown={openMemberTabIds.has(session.id)}
+              onToggleTab={() => onToggleMemberTab(session.id, t("sideChat.title"), true)}
               onDelete={session.relation?.kind === "side" ? () => setConfirmDeleteSideChatId(session.id) : undefined}
               confirming={confirmDeleteSideChatId === session.id}
               onDeleteConfirm={() => { void handleDeleteSideChat(session.id); }}
               onDeleteCancel={() => setConfirmDeleteSideChatId(null)}
             />
           ))}
-          {subagents.length > 0 && visibleSubagents.length === 0 && (
+          {members.length > 0 && visibleMembers.length === 0 && (
             <div style={{ padding: "22px 12px", color: "var(--text-dim)", fontSize: 12, textAlign: "center" }}>
               {t("agentSwitcher.noMatches")}
             </div>

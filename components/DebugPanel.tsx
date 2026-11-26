@@ -4,9 +4,7 @@ import { Component, Fragment, useEffect, useMemo, useRef, useState, type ReactNo
 import { useI18n } from "@/hooks/useI18n";
 import { copyText } from "@/lib/clipboard";
 import type { DebugClientSession, DebugEventConnectionSnapshot, DebugSessionDetail, DebugSessionSummary, DebugSnapshotResponse } from "@/lib/debug-types";
-import type { SessionInfo, SubagentSessionStatus } from "@/lib/types";
-import { StatusIcon } from "./AgentSessionPanel";
-import { MCP_SESSION_STATE_KEYS } from "./mcp-config-helpers";
+import type { SessionInfo } from "@/lib/types";
 import { sessionRowTitle } from "./SessionTree";
 import { FolderIcon, SpinnerIcon } from "./SidebarIcons";
 import {
@@ -14,7 +12,6 @@ import {
   DEBUG_LEASE_OUTCOME_KEYS,
   DEBUG_POLL_MS,
   DEBUG_REATTACH_REASON_KEYS,
-  DEBUG_RUN_STATUS_KEYS,
   DEBUG_SOURCE_KIND_KEYS,
   DEBUG_SAMPLE_COUNT,
   DEBUG_STATUS_KEYS,
@@ -47,7 +44,6 @@ import {
   groupDebugSessions,
   holderGroupLabel,
   joinParts as join,
-  mcpServerTone,
   nextLeaseRenewalAt,
   pageAgentStreamCount,
   poolSlots,
@@ -1143,8 +1139,7 @@ function detailStatus(detail: DebugSessionDetail): DebugStatusState {
 
 /**
  * What the server holds for the chat beyond its row: its id and marks, the run's chips, its start
- * and last event and command, its subagents and MCP servers. The row above has its state, holders
- * and reap countdown.
+ * and last event and command. The row above has its state, holders and reap countdown.
  */
 function SessionDetail({ detail, clock, ctx, unlisted = false }: { detail: DebugSessionDetail; clock: DebugServerClock; ctx: Ctx; unlisted?: boolean }) {
   const { t, titleOf } = ctx;
@@ -1171,14 +1166,11 @@ function SessionDetail({ detail, clock, ctx, unlisted = false }: { detail: Debug
         )}
         {closing && <Chip tone="warning">{closing}</Chip>}
         {wrapper?.chatOnly && <Chip tone="dim">{t("debug.server.chatOnly")}</Chip>}
-        {wrapper?.subagent && <Chip tone="dim">{t("debug.server.subagent")}</Chip>}
         {wrapper?.stale && <Chip tone="warning">{t("debug.server.stale")}</Chip>}
         <ListenerMismatch detail={detail} t={t} />
         {live && <RunChips detail={detail} t={t} />}
         {activity && <span className="debug-line">{activity}</span>}
       </div>
-      {live && <CardSubagents detail={detail} clock={clock} ctx={ctx} />}
-      {live && <CardMcp detail={detail} clock={clock} ctx={ctx} />}
     </div>
   );
 }
@@ -1266,7 +1258,6 @@ function RunChips({ detail, t }: { detail: DebugSessionDetail; t: Translate }) {
   const warnChips = [
     run.pendingPrompts > 0 && t("debug.run.pending", { count: run.pendingPrompts }),
     run.retrying && t("debug.run.retrying"),
-    run.waitingForMcp && t("debug.run.waitingForMcp"),
     wrapper.awaitingInput && wrapper.pendingUiRequests > 0 && t("debug.server.uiRequests", { count: wrapper.pendingUiRequests }),
     wrapper.awaitingInput && wrapper.customUis > 0 && t("debug.server.customUis", { count: wrapper.customUis }),
   ].filter((chip): chip is string => Boolean(chip));
@@ -1275,104 +1266,6 @@ function RunChips({ detail, t }: { detail: DebugSessionDetail; t: Translate }) {
       {dimChips.map((chip) => <Chip key={chip} tone="dim">{chip}</Chip>)}
       {warnChips.map((chip) => <Chip key={chip} tone="warning">{chip}</Chip>)}
     </>
-  );
-}
-
-const RUN_TONES: Partial<Record<string, DebugTone>> = {
-  completed: "ok",
-  failed: "error",
-  aborted: "warning",
-  interrupted: "warning",
-};
-
-/** A subagent run's mark: the sidebar's spinner while it runs, the agent switcher's shapes once settled. */
-function RunIcon({ status }: { status: string }) {
-  if (status === "running" || status === "starting") {
-    return <span className="debug-run-icon is-accent"><SpinnerIcon size={12} /></span>;
-  }
-  const tone = RUN_TONES[status];
-  if (tone) return <span className={`debug-run-icon is-${tone}`}><StatusIcon status={status as SubagentSessionStatus} /></span>;
-  return <span className="debug-run-icon"><span className="debug-status-ring is-alive" /></span>;
-}
-
-function CardSubagents({ detail, clock, ctx }: { detail: DebugSessionDetail; clock: DebugServerClock; ctx: Ctx }) {
-  const { t, titleOf } = ctx;
-  const subagents = detail.subagents;
-  if (!subagents.active && subagents.runs.length === 0 && subagents.notifications.length === 0) return null;
-  const ago = (at: number) => formatAgo(clock.age(at), t);
-  return (
-    <div className="debug-block">
-      <div className="debug-subhead">
-        <span>{t("debug.server.subagents")}</span>
-        {subagents.active && <Chip tone="accent">{t("debug.server.subagentsActive")}</Chip>}
-      </div>
-      {subagents.runs.map((run, index) => (
-        <div key={`${run.sessionId}:${index}`} className="debug-run-line">
-          <RunIcon status={run.status} />
-          <span className="debug-run-name">{titleOf(run.sessionId) ?? run.profile ?? shortDebugId(run.sessionId)}</span>
-          <span className="debug-line">
-            {join([
-              translateDebugCode(run.status, DEBUG_RUN_STATUS_KEYS, t),
-              run.background && t("debug.server.background"),
-              run.resumed && t("debug.server.resumed"),
-              run.dispatchedAt !== null && ago(run.dispatchedAt),
-            ])}
-          </span>
-          {run.abortRequested && <Chip tone="warning">{t("debug.server.abortRequested")}</Chip>}
-          {run.mcpWaiting && <Chip tone="warning">{t("debug.run.waitingForMcp")}</Chip>}
-        </div>
-      ))}
-      {subagents.notifications.map((notification, index) => (
-        <div key={`${notification.sessionId}:${index}`} className="debug-line is-warning">
-          {join([
-            t("debug.server.notifying", { parent: shortDebugId(notification.parentSessionId) }),
-            notification.since !== null && ago(notification.since),
-          ])}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function CardMcp({ detail, clock, ctx }: { detail: DebugSessionDetail; clock: DebugServerClock; ctx: Ctx }) {
-  const { t } = ctx;
-  const mcp = detail.mcp;
-  if (!mcp || (mcp.servers.length === 0 && mcp.problems === 0)) return null;
-  const release = mcp.idleReleaseAt !== null && mcp.idleMs > 0 ? clock.remaining(mcp.idleReleaseAt) : null;
-  return (
-    <div className="debug-block">
-      <div className="debug-pills">
-        <span className={`debug-subhead${mcp.active ? "" : " is-dim"}`}>MCP</span>
-        {mcp.servers.map((mcpServer, index) => {
-          const { tone, filled } = mcpServerTone(mcpServer);
-          const stateWord = translateDebugCode(mcpServer.state, MCP_SESSION_STATE_KEYS, t);
-          const label = join([
-            `${mcpServer.name} (${mcpServer.scope})`,
-            stateWord,
-            mcpServer.released && t("debug.server.mcpReleased"),
-            mcpServer.hasError && t("debug.server.mcpError"),
-          ]);
-          // Any state but connected also in words, and an error on a connected one: the dot's
-          // amber and red alone are a hue.
-          const word = mcpServer.state !== "connected" ? stateWord : mcpServer.hasError ? t("debug.server.mcpError") : null;
-          return (
-            <span key={`${mcpServer.scope}:${mcpServer.name}:${index}`} className="debug-pill" role="img" aria-label={label} title={label}>
-              <Dot tone={tone} ring={!filled} />
-              <span className={mcpServer.released ? "is-dim" : undefined}>{mcpServer.name}</span>
-              {word && <span className="debug-pill-state">{`· ${word}`}</span>}
-            </span>
-          );
-        })}
-        {mcp.problems > 0 && <Chip tone="warning">{t("debug.server.mcpProblems", { count: mcp.problems })}</Chip>}
-        {mcp.disposed && <Chip tone="dim">{t("debug.server.mcpDisposed")}</Chip>}
-      </div>
-      {release !== null && (
-        <div className="debug-idle-row">
-          <Bar fraction={barFraction(release, mcp.idleMs) ?? 0} tone="dim" width={80} />
-          <span className="debug-value is-muted">{t("debug.server.mcpRelease", { time: formatCountdown(release, t) })}</span>
-        </div>
-      )}
-    </div>
   );
 }
 

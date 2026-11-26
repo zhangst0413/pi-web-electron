@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server";
+import { statSync } from "fs";
+import { isAbsolute } from "path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import type {
-  McpErrorResponse,
-  McpRefusalReason,
-  ProjectMcpListing,
-  ProjectTrustResponse,
-  ProjectTrustUnreadableResponse,
-} from "@/lib/api-types";
-import { readProjectMcpServers } from "@/lib/mcp-config-read";
-import { isMcpEntryRefusal, validateMcpProject } from "@/lib/mcp-entry-request";
+import { cwdAccessRefusal } from "@/lib/file-access";
 import { invalidateModelsCache } from "@/lib/models-cache";
 import { getProjectTrustStatus, trustProject } from "@/lib/project-trust";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
@@ -20,53 +14,43 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function refusal(status: number, reason: McpRefusalReason, error: string) {
-  return NextResponse.json({ error, reason } satisfies McpErrorResponse, { status });
+function refusal(status: number, reason: string, error: string) {
+  return NextResponse.json({ error, reason }, { status });
 }
 
 /**
- * The folder, checked as Settings › MCP's routes check theirs
- * (`validateMcpProject()`): absolute, inside the allowed roots as given, then
- * a directory. A relative path is refused rather than resolved against the
- * server process's own folder, and a folder outside the roots gets 403
+ * The folder: absolute, inside the folders Pi Web may read, then a
+ * directory. A relative path is refused rather than resolved against the
+ * server process's own folder, and a folder outside those roots gets 403
  * whether or not it exists.
  */
-async function validateCwd(value: unknown): Promise<
-  { cwd: string; allowedRoots: Set<string> } | { response: NextResponse }
-> {
-  const result = await validateMcpProject(value);
-  if (isMcpEntryRefusal(result)) return { response: NextResponse.json(result.body, { status: result.status }) };
-  return result;
-}
-
-async function listProjectMcpServers(agentDir: string, cwd: string, allowedRoots: Set<string>): Promise<ProjectMcpListing> {
-  try {
-    const { file, servers } = await readProjectMcpServers({ agentDir, cwd, allowedRoots });
-    return { mcpFile: file, mcpServers: servers };
-  } catch (error) {
-    return { mcpServers: [], mcpError: errorMessage(error) };
+async function validateCwd(value: unknown): Promise<{ cwd: string } | { response: Response }> {
+  if (typeof value !== "string" || value.trim() === "") {
+    return { response: refusal(400, "cwd-invalid", "cwd required") };
   }
+  const cwd = value.trim();
+  if (!isAbsolute(cwd)) return { response: refusal(400, "cwd-invalid", "cwd must be absolute") };
+  const refused = await cwdAccessRefusal(cwd);
+  if (refused) return { response: refused };
+  try {
+    if (!statSync(cwd).isDirectory()) return { response: refusal(400, "cwd-invalid", "cwd is not a directory") };
+  } catch {
+    return { response: refusal(400, "cwd-invalid", "cwd does not exist") };
+  }
+  return { cwd };
 }
 
-// GET /api/project-trust?cwd=<folder>: the trust status, and the servers the
-// project's `.pi/mcp.json` declares, so the trust dialog lists what trusting
-// would connect before anyone trusts the folder (ADR 0006). The listing reads
-// the files only, like GET /api/mcp: no server is spawned, no value resolved,
-// no `!command` run, and env and header values never leave the server.
+// GET /api/project-trust?cwd=<folder>: the folder's trust status (ADR 0006).
 export async function GET(req: Request) {
   const result = await validateCwd(new URL(req.url).searchParams.get("cwd"));
   if ("response" in result) return result.response;
-  const agentDir = getAgentDir();
-  // Listed whatever the trust store says: the listing does not depend on it,
-  // and a dialog left without one would offer Trust with nothing listed.
-  const listing = await listProjectMcpServers(agentDir, result.cwd, result.allowedRoots);
   try {
-    return NextResponse.json({ ...getProjectTrustStatus(result.cwd, agentDir), ...listing } satisfies ProjectTrustResponse);
+    return NextResponse.json(getProjectTrustStatus(result.cwd, getAgentDir()));
   } catch (error) {
     // trust.json unparsable, or locked by another process (the pi CLI) past the
     // store's short wait; trusting would fail the same way right now.
     return NextResponse.json(
-      { error: errorMessage(error), reason: "trust-unreadable", ...listing } satisfies ProjectTrustUnreadableResponse,
+      { error: errorMessage(error), reason: "trust-unreadable" },
       { status: 500 },
     );
   }

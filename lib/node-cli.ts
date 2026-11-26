@@ -36,7 +36,7 @@ export function findNodeCliScript(
   ];
   for (const candidate of candidates) {
     try {
-      if (fileExists(candidate)) return candidate;
+      if (fileExists(/* turbopackIgnore: true */ candidate)) return candidate;
     } catch {
       // ignore
     }

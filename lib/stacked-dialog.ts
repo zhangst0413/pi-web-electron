@@ -126,7 +126,7 @@ function entersText(element: Opener): boolean {
  * Focus for a modal panel that opens over the page, such as Settings. Focus
  * moves to the panel itself when it opens, unless something inside it has it
  * already (an `autoFocus` field). An opener left focused behind the modal keeps
- * getting its keys: the chat composer a bare `/mcp` opens Settings from would
+ * getting its keys: the chat composer Settings opens from would
  * take Escape as Stop while a run streams, so Settings stayed open, and on a
  * phone its software keyboard stayed up over Settings. Call it from a layout
  * effect, which runs before the panel's sections focus their own search boxes

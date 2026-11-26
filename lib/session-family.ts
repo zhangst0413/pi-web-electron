@@ -31,17 +31,17 @@ export function sideChatTitle(session: Pick<SessionInfo, "id" | "name">, untitle
 }
 
 /** Relation kinds that hide a session as a family member instead of a sidebar row. */
-export type HiddenRelationKind = "subagent" | "side";
+export type HiddenRelationKind = "side";
 export type HiddenRelation = Extract<SessionInfo["relation"], { kind: HiddenRelationKind }>;
 
 export function isHiddenRelation(relation: SessionInfo["relation"]): relation is HiddenRelation {
-  return relation?.kind === "subagent" || relation?.kind === "side";
+  return relation?.kind === "side";
 }
 
 export interface SessionFamily {
   root: SessionInfo;
-  /** Every hidden member of the family: subagent runs and side chats (ADR 0007). */
-  subagents: SessionInfo[];
+  /** Every hidden member of the family: side chats (ADR 0007). */
+  members: SessionInfo[];
   latestModified: string;
 }
 
@@ -81,7 +81,7 @@ function resolveFamilyRoots(sessions: readonly SessionInfo[]): Map<string, strin
   return roots;
 }
 
-/** Groups visible main/fork sessions with every persisted subagent descendant. */
+/** Groups visible main/fork sessions with every persisted side chat below them. */
 export function listSessionFamilies(sessions: readonly SessionInfo[]): SessionFamily[] {
   const rootsBySessionId = resolveFamilyRoots(sessions);
   const families = new Map<string, SessionFamily>();
@@ -90,7 +90,7 @@ export function listSessionFamilies(sessions: readonly SessionInfo[]): SessionFa
     if (isHiddenRelation(session.relation)) continue;
     families.set(session.id, {
       root: session,
-      subagents: [],
+      members: [],
       latestModified: session.modified,
     });
   }
@@ -100,7 +100,7 @@ export function listSessionFamilies(sessions: readonly SessionInfo[]): SessionFa
     const rootId = rootsBySessionId.get(session.id);
     const family = rootId ? families.get(rootId) : undefined;
     if (!family) continue;
-    family.subagents.push(session);
+    family.members.push(session);
     if (session.modified > family.latestModified) family.latestModified = session.modified;
   }
 
@@ -114,43 +114,23 @@ export function getSessionFamily(
   if (!sessionId) return null;
   return listSessionFamilies(sessions).find((family) => (
     family.root.id === sessionId
-    || family.subagents.some((session) => session.id === sessionId)
+    || family.members.some((session) => session.id === sessionId)
   )) ?? null;
 }
 
-/**
- * The Agents strip under the chat toolbar (#1658): while the main chat shows a member of a
- * family other than its root, every member in creation order, so the chips never move as runs
- * start and end. On the root only while the strip is locked and the family has a member; null
- * otherwise, and while the main chat shows no family member.
- */
-export function getAgentStripMembers(
-  family: SessionFamily | null,
-  selectedSessionId: string | null | undefined,
-  locked = false,
-): SessionInfo[] | null {
-  if (!family || !selectedSessionId) return null;
-  if (family.root.id === selectedSessionId) {
-    if (!locked || family.subagents.length === 0) return null;
-  } else if (!family.subagents.some((session) => session.id === selectedSessionId)) {
-    return null;
-  }
-  return [...family.subagents].sort((a, b) => a.created.localeCompare(b.created) || a.id.localeCompare(b.id));
-}
-
-/** Subagents of a family that the sidebar's running poll lists. */
-export function countRunningSubagents(
-  subagents: readonly SessionInfo[],
+/** Members of a family that the sidebar's running poll lists. */
+export function countRunningMembers(
+  members: readonly SessionInfo[],
   runningSessionIds: ReadonlySet<string>,
 ): number {
-  return subagents.filter((session) => runningSessionIds.has(session.id)).length;
+  return members.filter((session) => runningSessionIds.has(session.id)).length;
 }
 
 /** The top bar's Agents badge: how many run while any does, else how many there are. */
 export function getAgentsBadge(
-  subagents: readonly SessionInfo[],
+  members: readonly SessionInfo[],
   runningSessionIds: ReadonlySet<string>,
 ): { count: number; running: boolean } {
-  const running = countRunningSubagents(subagents, runningSessionIds);
-  return running > 0 ? { count: running, running: true } : { count: subagents.length, running: false };
+  const running = countRunningMembers(members, runningSessionIds);
+  return running > 0 ? { count: running, running: true } : { count: members.length, running: false };
 }

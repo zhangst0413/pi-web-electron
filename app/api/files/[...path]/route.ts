@@ -227,7 +227,7 @@ export async function POST(
     const errors: Array<{ name: string; error: string }> = [];
 
     for (const file of files) {
-      const destination = path.join(directory, file.name);
+      const destination = path.join(/* turbopackIgnore: true */ directory, file.name);
       if (conflictSet.has(file.name) && strategy === "skip") {
         skipped.push(file.name);
         continue;

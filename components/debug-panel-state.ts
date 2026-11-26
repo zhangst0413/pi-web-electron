@@ -2,7 +2,6 @@ import type {
   DebugClientSession,
   DebugEventConnectionSnapshot,
   DebugEventStreamState,
-  DebugMcpServer,
   DebugPageVisibility,
   DebugRunningPoll,
   DebugSessionDetail,
@@ -15,9 +14,8 @@ import type {
 } from "@/lib/debug-types";
 import { listTrackedEventSources, readHttpProtocol, readPageVisibility, readRunningPoll } from "@/lib/page-debug";
 import { projectNameOf } from "@/lib/session-tree";
-import type { SessionInfo, SubagentSessionStatus } from "@/lib/types";
+import type { SessionInfo } from "@/lib/types";
 import { workspaceKeyOf } from "@/lib/workspace-memory";
-import { MCP_SESSION_STATE_KEYS } from "./mcp-config-helpers";
 
 /**
  * The debug panel's pure parts (components/DebugPanel.tsx): what it reads of the page each second,
@@ -92,18 +90,6 @@ export const DEBUG_POLL_FAILURE_KEYS: Record<DebugPollFailure["kind"], string> =
   http: "debug.poll.http",
   network: "debug.poll.network",
   invalid: "debug.poll.invalid",
-};
-
-/** A subagent run's status: the agent switcher's words, and "unknown" for one the server could not read. */
-export const DEBUG_RUN_STATUS_KEYS: Record<SubagentSessionStatus | "unknown", string> = {
-  starting: "agentSwitcher.status.starting",
-  queued: "agentSwitcher.status.queued",
-  running: "agentSwitcher.status.running",
-  completed: "agentSwitcher.status.completed",
-  failed: "agentSwitcher.status.failed",
-  aborted: "agentSwitcher.status.aborted",
-  interrupted: "agentSwitcher.status.interrupted",
-  unknown: "debug.unknown",
 };
 
 export const DEBUG_CLOSE_REASON_KEYS: Record<DebugStreamCloseReason, string> = {
@@ -251,14 +237,10 @@ function isSummary(value: unknown): boolean {
 function isDetail(value: unknown): boolean {
   if (!isObject(value) || typeof value.sessionId !== "string") return false;
   const wrapper = value.wrapper;
-  const subagents = value.subagents;
-  const mcp = value.mcp;
   return (wrapper === null || (isObject(wrapper) && typeof wrapper.state === "string" && isObject(wrapper.run) && isObject(wrapper.idle)))
     && (value.lifecycle === null || isObject(value.lifecycle))
     && (value.providers === null || Array.isArray(value.providers))
-    && Array.isArray(value.eventStreams)
-    && isObject(subagents) && Array.isArray(subagents.runs) && Array.isArray(subagents.notifications)
-    && (mcp === null || (isObject(mcp) && Array.isArray(mcp.servers)));
+    && Array.isArray(value.eventStreams);
 }
 
 function isServerGlobal(value: unknown): boolean {
@@ -593,16 +575,6 @@ export function freshnessTone(ageMs: number, staleAfterMs: number): "dim" | "war
   return ageMs >= staleAfterMs / 2 ? "warning" : "dim";
 }
 
-/** An MCP server's dot: filled for a settled state, a ring while it connects or after it was let go. */
-export function mcpServerTone(server: DebugMcpServer): { tone: DebugTone; filled: boolean } {
-  if (server.hasError || server.state === "failed" || server.state === "conflict") return { tone: "error", filled: true };
-  if (server.released) return { tone: "dim", filled: false };
-  if (server.state === "connected") return { tone: "ok", filled: true };
-  if (server.state === "connecting") return { tone: "warning", filled: false };
-  if (server.state === "needs-auth" || server.state === "not-trusted" || server.state === "disconnected") return { tone: "warning", filled: true };
-  return { tone: "muted", filled: false };
-}
-
 // ── This page's sources ──
 
 /** HTTP/1.1's connections per origin, for all of a browser's tabs (#1283). */
@@ -755,7 +727,7 @@ export function sparkStats(samples: readonly DebugSample[]): { count: number; me
 export interface DebugIssue {
   id:
     | "poll" | "reader" | "runningPoll" | "pool" | "source" | "stream" | "streamSilent" | "noServerStream"
-    | "dropped" | "lease" | "extensions" | "provider" | "mcp";
+    | "dropped" | "lease" | "extensions" | "provider";
   tone: "warning" | "error";
   text: string;
 }
@@ -887,11 +859,6 @@ export function debugIssues({ page, server, detail, t, titleOf }: DebugIssueInpu
   for (const provider of detail?.providers ?? []) {
     if (provider.active === "error") add("provider", "error", [provider.name, t("debug.server.providerError")]);
   }
-  for (const mcpServer of detail?.mcp?.servers ?? []) {
-    if (mcpServer.hasError || mcpServer.state === "failed" || mcpServer.state === "conflict") {
-      add("mcp", "error", [`MCP ${mcpServer.name}`, translateDebugCode(mcpServer.state, MCP_SESSION_STATE_KEYS, t)]);
-    }
-  }
 
   // Array.prototype.sort is stable: each tone keeps the order above.
   return issues.sort((a, b) => Number(b.tone === "error") - Number(a.tone === "error"));
@@ -918,10 +885,10 @@ export function debugVerdict(page: DebugPageReading | null, server: DebugServerR
 
 export interface DebugSessionRow {
   id: string;
-  /** 1: a subagent under its family's root. */
+  /** Kept for the tree's shape; only roots are listed now. */
   depth: 0 | 1;
   info: SessionInfo | null;
-  /** Null for a placeholder: a root the server holds nothing for, shown for its subagents. */
+  /** Null for a placeholder: a root the server holds nothing for, shown for its members. */
   summary: DebugSessionSummary | null;
   /** The session the panel shows (its card has the details). */
   current: boolean;
@@ -951,7 +918,7 @@ function newestFirst(a: number, b: number): number {
 
 /**
  * The sessions the server holds something for, grouped like the sidebar: by project, each family
- * under its root (subagents one level in, newest first), the chat's family and its project first,
+ * under its root (one level in, newest first), the chat's family and its project first,
  * then by the roots' last activity. Sessions the list does not have go last, by short id, unless
  * the chat's own session is one of them. The chat's session gets a row only when the server holds
  * something for it or its family.
@@ -961,14 +928,14 @@ export function groupDebugSessions(
   byId: ReadonlyMap<string, SessionInfo>,
   currentId: string | null,
 ): DebugSessionGroup[] {
-  // Up the subagent parents while the list has them. Parents that loop make no family: each member
+  // Up the side chat parents while the list has them. Parents that loop make no family: each member
   // stands as its own root, so no session gets two rows.
   const rootOf = (info: SessionInfo): SessionInfo => {
     let node = info;
     const seen = new Set([info.id]);
     for (let step = 0; step < MAX_FAMILY_DEPTH; step++) {
       const relation = node.relation;
-      if (relation?.kind !== "subagent") break;
+      if (relation?.kind !== "side") break;
       const parent = byId.get(relation.parentSessionId);
       if (!parent) break;
       if (seen.has(parent.id)) return info;
@@ -981,7 +948,7 @@ export function groupDebugSessions(
   interface Family {
     root: SessionInfo;
     summary: DebugSessionSummary | null;
-    subagents: { info: SessionInfo; summary: DebugSessionSummary }[];
+    members: { info: SessionInfo; summary: DebugSessionSummary }[];
   }
   const families = new Map<string, Family>();
   const unlisted: DebugSessionSummary[] = [];
@@ -994,11 +961,11 @@ export function groupDebugSessions(
     const root = rootOf(info);
     let family = families.get(root.id);
     if (!family) {
-      family = { root, summary: null, subagents: [] };
+      family = { root, summary: null, members: [] };
       families.set(root.id, family);
     }
     if (root.id === info.id) family.summary = summary;
-    else family.subagents.push({ info, summary });
+    else family.members.push({ info, summary });
   }
 
   const currentInfo = currentId === null ? undefined : byId.get(currentId);
@@ -1031,8 +998,8 @@ export function groupDebugSessions(
         current: family.root.id === currentId,
         placeholder: family.summary === null,
       });
-      const subagents = [...family.subagents].sort((a, b) => newestFirst(modifiedAt(a.info), modifiedAt(b.info)));
-      for (const { info, summary } of subagents) {
+      const members = [...family.members].sort((a, b) => newestFirst(modifiedAt(a.info), modifiedAt(b.info)));
+      for (const { info, summary } of members) {
         rows.push({ id: info.id, depth: 1, info, summary, current: info.id === currentId, placeholder: false });
       }
     }
@@ -1066,7 +1033,7 @@ export function groupDebugSessions(
 /** A session row's tooltip: "a1b2c3d4 · alive · running · 2 event streams · idle check in 8m · started 2×". */
 export function debugSessionTitle(summary: DebugSessionSummary, idleInMs: number | null, t: Translate): string {
   const parts = [
-    summary.subagent ? t("debug.overlay.subagentId", { id: shortDebugId(summary.sessionId) }) : shortDebugId(summary.sessionId),
+    shortDebugId(summary.sessionId),
     t(DEBUG_SESSION_STATE_KEYS[summary.state] ?? DEBUG_SESSION_STATE_KEYS.none),
   ];
   if (summary.running) parts.push(t("debug.overlay.running"));

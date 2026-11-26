@@ -1,24 +1,15 @@
-import type { SUBAGENT_CONTROL_TOOL_NAMES } from "./subagents";
 import type { SessionEntry, ToolResultMessage } from "./types";
-
-// Spelled out rather than imported: subagents.ts loads the SDK, and this module stays
-// importable on its own. The type rejects a name subagents.ts no longer registers.
-const SUBAGENT_TOOL_NAMES: ReadonlyArray<typeof SUBAGENT_CONTROL_TOOL_NAMES[number]> = [
-  "Agent",
-  "get_subagent_result",
-  "steer_subagent",
-];
 
 // pi's coding tools, as `CODING_TOOL_NAMES` in rpc-manager.ts lists them.
 const CODING_TOOL_NAMES = new Set<string>(["read", "bash", "powershell", "edit", "write", "grep", "find", "ls"]);
 
-// Tools whose result text may authorize a path it mentions: the coding tools and Pi
-// Web's subagent tools. Every other result (MCP, codemode, third-party extensions)
-// relays text a remote party controls.
-const PATH_REPORTING_TOOL_NAMES = new Set<string>([...CODING_TOOL_NAMES, ...SUBAGENT_TOOL_NAMES]);
+// Tools whose result text may authorize a path it mentions: the coding tools.
+// Every other result (codemode, third-party extensions) relays text a remote
+// party controls.
+const PATH_REPORTING_TOOL_NAMES = new Set<string>([...CODING_TOOL_NAMES]);
 
 // The codemode extension's script store (`CODEMODE_STORE_ENTRY_TYPE` in the SDK): values a
-// script saved, often straight from MCP results.
+// script saved.
 const CODEMODE_STORE_ENTRY_TYPE = "codemode-store";
 
 const SESSION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

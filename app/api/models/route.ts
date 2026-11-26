@@ -112,15 +112,16 @@ const EMPTY_MODELS: ModelsData = {
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const requestedCwd = resolve(url.searchParams.get("cwd") || process.cwd());
+  // Written by the user at run time, never a bundled asset.
+  const requestedCwd = resolve(/* turbopackIgnore: true */ url.searchParams.get("cwd") || process.cwd());
   const scopeAll = url.searchParams.get("scope") === "all";
-  // A subagent run isolated in a worktree has that worktree removed when the run
+  // A run isolated in a worktree has that worktree removed when the run
   // finishes, yet its session file still records the worktree as its cwd. Fall back
-  // to the main repo it branched from, so opening a finished subagent resolves the
+  // to the main repo it branched from, so opening a finished session resolves the
   // same models a non-isolated one would. The roots check below runs on the folder
   // actually answered from, so the fallback reaches no project that was not allowed
   // by name already.
-  const cwd = existsSync(requestedCwd)
+  const cwd = existsSync(/* turbopackIgnore: true */ requestedCwd)
     ? requestedCwd
     : inferRemovedWorktree(requestedCwd)?.projectRoot ?? requestedCwd;
 

@@ -14,7 +14,6 @@ import { sessionPathKey } from "./session-path";
 import { skillExpansionToCommand } from "./slash-display";
 import { MAX_TOOL_RESULT_IMAGE_BYTES, TOOL_RESULT_IMAGE_MIMES } from "./tool-result-images";
 import { resolveProject, type ProjectInfo } from "./worktree";
-import { readSubagentRun, SUBAGENT_META_TYPE } from "./subagents";
 import { readSideRelation } from "./side-session";
 import { checkSessionMembership, listSessionsIncremental, scanSessionFileInfo, type ScannedSessionInfo } from "./session-list-scanner";
 
@@ -23,7 +22,6 @@ export { getAgentDir };
 const SESSION_HEADER_MAX_BYTES = 64 * 1024;
 const SESSION_RELATION_MAX_BYTES = 256 * 1024;
 const SESSION_RELATION_MAX_LINES = 2;
-const SESSION_RESULT_MAX_BYTES = 256 * 1024;
 // Bounded probe for the newest entry id; never reads a whole session file.
 const SESSION_TAIL_PROBE_MAX_BYTES = 64 * 1024;
 
@@ -141,18 +139,9 @@ export function readLatestSessionEntryId(filePath: string | undefined): string |
 }
 
 function readSessionRelationEntries(filePath: string): SessionEntry[] {
-  const prefixEntries = parseSessionEntries(
+  return parseSessionEntries(
     readBoundedLines(filePath, SESSION_RELATION_MAX_BYTES, SESSION_RELATION_MAX_LINES).slice(1),
   );
-  const isSubagent = prefixEntries.some((entry) => (
-    entry.type === "custom" && entry.customType === SUBAGENT_META_TYPE
-  ));
-  if (!isSubagent) return prefixEntries;
-
-  return [
-    ...prefixEntries,
-    ...parseSessionEntries(readBoundedTailLines(filePath, SESSION_RESULT_MAX_BYTES)),
-  ];
 }
 
 export async function attachSessionProjectInfo(sessions: SessionInfo[]): Promise<SessionInfo[]> {
@@ -186,44 +175,41 @@ export function mergeSessionLists(
   return [...byId.values()].sort((a, b) => b.modified.localeCompare(a.modified));
 }
 
-type ScannedSubagent = NonNullable<ReturnType<typeof readSubagentRun>>;
 type ScannedSide = NonNullable<ReturnType<typeof readSideRelation>>;
 
 /**
- * A subagent's run or a side chat's parent, read from its file, per scanned
- * row. The scanner hands back the same row object while the file's size and
- * mtime stay the same and a new one once they change, so the row is the cache
- * key: every list rebuild re-read ~140 subagent files synchronously (~36 ms of
- * blocked event loop) though only the session that just ran had changed.
+ * A side chat's parent, read from its file, per scanned row. The scanner hands
+ * back the same row object while the file's size and mtime stay the same and a
+ * new one once they change, so the row is the cache key: every list rebuild
+ * re-read side chat files synchronously though only the session that just ran
+ * had changed.
  */
-const scannedSubagentRuns = new WeakMap<ScannedSessionInfo, { subagent: ScannedSubagent | null; side: ScannedSide | null }>();
+const scannedSideRelations = new WeakMap<ScannedSessionInfo, { side: ScannedSide | null }>();
 
 function resolveScannedSessionRelation(
   scanned: ScannedSessionInfo,
   pathToId: Map<string, string>,
-): { originSessionId?: string; subagent: ScannedSubagent | null; side: ScannedSide | null } {
+): { originSessionId?: string; side: ScannedSide | null } {
   const originSessionId = scanned.parentSessionPath
     ? pathToId.get(sessionPathKey(scanned.parentSessionPath))
     : undefined;
-  if (!scanned.parentSessionPath) return { originSessionId, subagent: null, side: null };
+  if (!scanned.parentSessionPath) return { originSessionId, side: null };
 
-  const cached = scannedSubagentRuns.get(scanned);
+  const cached = scannedSideRelations.get(scanned);
   if (cached !== undefined) return { originSessionId, ...cached };
   try {
-    const relationEntries = readSessionRelationEntries(scanned.path);
-    const subagent = readSubagentRun(relationEntries, scanned.id, scanned.path);
-    const side = subagent ? null : readSideRelation(relationEntries);
-    const resolved = { subagent, side };
-    scannedSubagentRuns.set(scanned, resolved);
+    const side = readSideRelation(readSessionRelationEntries(scanned.path));
+    const resolved = { side };
+    scannedSideRelations.set(scanned, resolved);
     return { originSessionId, ...resolved };
   } catch {
     // Malformed or concurrently removed session: read it again next time.
-    return { originSessionId, subagent: null, side: null };
+    return { originSessionId, side: null };
   }
 }
 
 /**
- * The list's first message is for the row title and the subagent filter, never
+ * The list's first message is for the row title, never
  * the whole prompt: a pasted document or an expanded skill made one row 300 KB
  * and the list several MB, fetched again by every open tab after each run. A
  * skill expansion goes as the /skill: command its row shows; any other text is
@@ -243,7 +229,7 @@ function mapScannedSession(
   pathToId: Map<string, string>,
 ): SessionInfo {
   cacheSessionPath(scanned.id, scanned.path);
-  const { originSessionId, subagent, side } = resolveScannedSessionRelation(scanned, pathToId);
+  const { originSessionId, side } = resolveScannedSessionRelation(scanned, pathToId);
   const detailsPending = scanned.detailsPending === true;
   return {
     path: scanned.path,
@@ -259,13 +245,11 @@ function mapScannedSession(
       ? ""
       : catalogFirstMessage(scanned.firstMessage || "(no messages)"),
     parentSessionId: originSessionId,
-    ...(subagent
-      ? { relation: { kind: "subagent" as const, parentSessionId: subagent.parentSessionId, profile: subagent.profile, description: subagent.description, status: subagent.status } }
-      : side
-        ? { relation: { kind: "side" as const, ...side } }
-        : scanned.parentSessionPath
-          ? { relation: { kind: "fork" as const, ...(originSessionId ? { originSessionId } : {}) } }
-          : {}),
+    ...(side
+      ? { relation: { kind: "side" as const, ...side } }
+      : scanned.parentSessionPath
+        ? { relation: { kind: "fork" as const, ...(originSessionId ? { originSessionId } : {}) } }
+        : {}),
     transient: false,
     ...(detailsPending ? { detailsPending: true } : {}),
   };
@@ -315,7 +299,7 @@ export async function listAllSessions(options: { force?: boolean; allowStale?: b
   // Callers that only need session metadata — mapping search hits onto sidebar
   // rows, for example — can take the previous scan and let the rebuild happen in
   // the background. A rebuild costs hundreds of milliseconds because it re-reads
-  // every forked and subagent session, and it is triggered by ordinary agent
+  // every forked session, and it is triggered by ordinary agent
   // activity rather than by anything the caller did.
   if (options.allowStale && cache) {
     void listAllSessions().catch(() => undefined);

@@ -123,7 +123,8 @@ export async function GET(req: NextRequest) {
 
     let stat: fs.Stats;
     try {
-      stat = fs.statSync(cwd);
+      // A runtime folder, never a bundled asset: leave it out of the build's trace.
+      stat = fs.statSync(/* turbopackIgnore: true */ cwd);
     } catch {
       return NextResponse.json({ error: "Directory not found" }, { status: 404 });
     }
