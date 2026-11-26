@@ -24,7 +24,6 @@ import {
 import { cacheSessionPath, catalogFirstMessage, getLatestModelChange, invalidateSessionListCache, invalidateSessionManagerCache, invalidateSessionPathCache, readLatestSessionEntryId } from "./session-reader";
 import { computeLiveSessionTotalActiveMs } from "./session-timing";
 import { getProjectTrustStatus, projectTrustReloadOptions } from "./project-trust";
-import { notifySessionComplete } from "./web-push";
 import { hasActiveSessionLivenessProvider } from "./session-liveness";
 import type { SlashCommandInfo } from "@earendil-works/pi-coding-agent";
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from "./pi-types";
@@ -3546,11 +3545,6 @@ export async function startRpcSession(
     const wrapper = new AgentSessionWrapper(inner, {
       exactSystemPrompt,
       chatOnly,
-      onAgentRunComplete: (completedSessionId, sessionName) => {
-        void notifySessionComplete(completedSessionId, sessionName).catch((error) => {
-          console.error("[pi-web] failed to send completion push:", error instanceof Error ? error.message : error);
-        });
-      },
       suppressCompletionNotifications: isSideChat,
       ...(chatOnlyExtensionModel ? { chatOnlyExtensionModel } : {}),
       sideChat: isSideChat,

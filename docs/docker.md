@@ -84,7 +84,6 @@ Then set `PI_WEB_APP_NAME=Work Pi` in `.env` and run `docker compose up -d` to r
 - `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`: outbound proxy configuration.
 - `PI_OFFLINE`: disable online model-catalog/plugin checks.
 - `PI_WEB_DISABLE_MCP`: disable MCP integration.
-- `PI_WEB_PUSH_SUBJECT`: optional Web Push VAPID subject.
 - `GITHUB_TOKEN` or `GH_TOKEN`: optional GitHub API token used by skill update checks; `SKILLS_API_URL` overrides the skills service base URL.
 - `PI_WEB_PERF`, `PI_WEB_SSE_BACKLOG_LIMIT_BYTES`: performance diagnostics / SSE backpressure tuning.
 

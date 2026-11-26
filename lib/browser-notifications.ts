@@ -98,8 +98,7 @@ export async function showBrowserNotification(
       if (registration) {
         await registration.showNotification(options.title, {
           ...notificationOptions,
-          // shownAt lets the service worker tell this completion's push from a later task's (#1515).
-          data: { url: options.sessionUrl, shownAt: Date.now() },
+          data: { url: options.sessionUrl },
         });
         return "service-worker";
       }

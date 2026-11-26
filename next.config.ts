@@ -42,7 +42,6 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     "node-pty",
     "undici",
-    "web-push",
     "@earendil-works/pi-coding-agent",
     "@earendil-works/pi-agent-core",
     "@earendil-works/pi-ai",

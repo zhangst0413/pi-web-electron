@@ -132,7 +132,3 @@ export interface AppUpdateResponse {
   updateAvailable: boolean;
   releaseUrl: string;
 }
-
-export interface PushConfigResponse {
-  publicKey: string;
-}

@@ -32,7 +32,6 @@ import {
   shouldShowBrowserNotification,
   showBrowserNotification,
 } from "@/lib/browser-notifications";
-import { setupPushSubscription } from "@/lib/push-client";
 import { getInitialNavigation, withTabOpen } from "@/lib/initial-navigation";
 import { clearTabOpenSession, getTabOpen, setTabOpenNewSession, setTabOpenSession } from "@/lib/tab-session";
 import { mergeCatalogRow } from "./session-catalog-helpers";
@@ -91,14 +90,6 @@ export function AppShell() {
   const isNarrowMobile = useIsNarrowMobile();
   useViewportHeight();
 
-  // Once the user has granted notification permission, register a Web Push
-  // subscription so the server can notify backgrounded PWAs (notably iOS,
-  // which suspends page JS and never receives the SSE completion event).
-  useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-    if (Notification.permission !== "granted") return;
-    void setupPushSubscription(locale);
-  }, [locale]);
   // Audio ownership lives here (not in ChatWindow) so the completion tone can
   // also fire for tasks finishing in a non-active workspace whose ChatWindow
   // is not mounted. ChatWindow receives the audio callbacks as props.
@@ -907,16 +898,12 @@ export function AppShell() {
 
     if (Notification.permission === "granted") {
       fire();
-      void setupPushSubscription(locale);
     } else if (Notification.permission === "default") {
       void Notification.requestPermission().then((p) => {
-        if (p === "granted") {
-          fire();
-          void setupPushSubscription(locale);
-        }
+        if (p === "granted") fire();
       });
     }
-  }, [handleSelectSession, locale]);
+  }, [handleSelectSession]);
 
   const handleAgentEnd = useCallback(() => {
     setRefreshKey((k) => k + 1);

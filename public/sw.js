@@ -71,55 +71,6 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-self.addEventListener("push", (event) => {
-  let payload = {};
-  try {
-    payload = event.data ? event.data.json() : {};
-  } catch {
-    // Ignore malformed or missing push payloads.
-  }
-  const { title, body, url, tag } = payload;
-  if (typeof title !== "string" || !title || typeof body !== "string" || !body) return;
-
-  // Always surface a system notification. iOS revokes the push subscription
-  // when a service worker handles a push without showing a notification, so
-  // suppressing the notification while a window is visible poisons the
-  // subscription in the background-delivery case. Notifications sharing a tag
-  // replace each other instead of stacking, so a visible window merely sees
-  // the completion notification re-appear.
-  event.waitUntil(showPushNotification(title, body, url, tag));
-});
-
-// An open page announces a completion itself from its event stream, and the
-// push for the same completion lands a moment later. Both carry the session's
-// tag; with renotify the push replaced the page's notification and alerted a
-// second time (#1515). A same-tag notification shown this recently is that
-// completion's, so the push replaces it quietly. An older one belongs to an
-// earlier task and the push alerts again (#701).
-const RECENT_NOTIFICATION_MS = 10000;
-
-async function showPushNotification(title, body, url, tag) {
-  const shownAt = Date.now();
-  const data = { url: typeof url === "string" && url ? url : "/", shownAt };
-  if (typeof tag !== "string" || !tag) {
-    return self.registration.showNotification(title, { body, data });
-  }
-  const renotify = !(await hasRecentNotification(tag, shownAt));
-  return self.registration.showNotification(title, { body, data, tag, renotify });
-}
-
-async function hasRecentNotification(tag, now) {
-  try {
-    const notifications = await self.registration.getNotifications({ tag });
-    return notifications.some((notification) => {
-      const shownAt = notification.data?.shownAt;
-      return typeof shownAt === "number" && now - shownAt >= 0 && now - shownAt < RECENT_NOTIFICATION_MS;
-    });
-  } catch {
-    return false;
-  }
-}
-
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
