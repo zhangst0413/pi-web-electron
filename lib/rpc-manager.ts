@@ -47,6 +47,7 @@ import { SIDE_SESSION_NAME, sideChatNameFrom } from "./session-family";
 import { resolveShellTools } from "./powershell-settings";
 import { CHAT_ONLY_RESOURCE_LOADER_OPTIONS, contextFilesSystemPrompt } from "./chat-only";
 import { createExactSystemPromptExtension } from "./exact-system-prompt";
+import { createChineseSystemPromptExtension } from "./system-prompt-zh";
 import { createPiWebBuiltinExtensions } from "./builtin-extensions";
 import type { DebugSessionLifecycle, DebugWrapperSnapshot } from "./debug-types";
 import { isNestedToolExecutionEvent, liveToolExecutionEvent, parallelToolCallIds } from "./agent-event-wire";
@@ -3391,6 +3392,8 @@ export async function startRpcSession(
                 settings: settingsManager,
               }),
               createProjectCommandPowerShellExtension({ cwd: sessionCwd }),
+              // Last, so the rules it writes include every guideline loaded above.
+              createChineseSystemPromptExtension(),
             ],
             extensionsOverride: (base) => preferUserPowerShellExtension(
               preferUserBashExtension(base),
