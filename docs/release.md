@@ -101,8 +101,6 @@ gh run list --workflow publish.yml --limit 1
 gh run watch <run-id> --exit-status
 ```
 
-The same push to `main` also redeploys the demo (`demo-pages.yml`), since the release commit changes `package.json`.
-
 Notes:
 
 - `gh run watch` can return a non-zero exit while the run is still going (it did on the long container build). Check `gh run view <run-id>` before treating it as a failure.
