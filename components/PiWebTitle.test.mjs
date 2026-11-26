@@ -86,8 +86,9 @@ test("the brand's text sits in the chevron column and is never cut at the sideba
   assert.equal(marginLeft + paddingLeft, 6 + 5);
 
   // At the sidebar's minimum (its line off), beside New's + and the search
-  // (36px cells each), "Pi Web" fits in its 15px code type (0.6em a
-  // character), and the versions in the 11px of data-fit 2.
+  // (36px cells each), "Pi Web" fits in its 15px code type (0.6em is a
+  // conservative character advance; Consolas is 0.55em), and the versions in
+  // the 11px of data-fit 2.
   assert.match(brand, /(?:^|\s)font-family: var\(--font-mono\);/);
   assert.match(brand, /(?:^|\s)font-size: 15px;/);
   assert.match(css, /\.sidebar-header\[data-fit="2"\] \.sidebar-brand \{\s*font-size: 11px;\s*\}/);

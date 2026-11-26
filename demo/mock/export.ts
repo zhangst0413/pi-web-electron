@@ -44,7 +44,7 @@ h1{font-size:20px;margin:0 0 4px}.meta{color:var(--muted);font-size:12px;margin-
 .msg{border:1px solid var(--line);border-radius:10px;margin:12px 0;overflow:hidden}
 .msg header{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:6px 12px;border-bottom:1px solid var(--line)}
 .msg.user{background:var(--user)}.msg.toolResult,.msg.bashExecution{background:var(--tool)}
-pre{margin:0;padding:10px 12px;white-space:pre-wrap;word-break:break-word;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{margin:0;padding:10px 12px;white-space:pre-wrap;word-break:break-word;font:13px/1.55 'Cascadia Mono',Consolas,monospace}
 </style></head><body><main><h1>${escapeHtml(title)}</h1>
 <div class="meta">${escapeHtml(session.cwd)} · ${context.messages.length} ${zh ? "条消息 · Pi Web 演示导出" : "messages · Pi Web demo export"}</div>
 ${rows}</main></body></html>`;

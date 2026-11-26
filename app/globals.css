@@ -940,10 +940,12 @@ button.extension-widget-trigger:focus-visible {
 }
 
 :root {
-  --font-ui-default: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  /* The drawing faces come before the web font: its generated fallback is
-     Arial, which would otherwise take the box drawing it lacks. */
-  --font-mono-default: "Terminal Drawing", "Terminal Drawing Windows", var(--font-noto-mono), 'JetBrains Mono', 'Fira Code', 'Consolas', ui-monospace, 'PingFang SC', 'Microsoft YaHei', monospace;
+  --font-ui-default: 'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', system-ui, sans-serif;
+  /* Consolas ships with every Windows and draws the box drawing and block
+     characters itself, so the columns of an extension's TUI text line up.
+     Cascadia Mono (Windows Terminal) comes first where it is installed; the
+     CJK fallbacks are proportional and come last. */
+  --font-mono-default: 'Cascadia Mono', Consolas, 'Microsoft YaHei UI', 'Microsoft YaHei', monospace;
   --font-ui: var(--font-ui-default);
   --font-mono: var(--font-mono-default);
   --font-ui-weight: 400;
@@ -1178,26 +1180,10 @@ pre, code {
   white-space: pre-wrap;
 }
 
-/* The page's mono font ships Latin and Cyrillic only, so arrows, box drawing and
-   blocks fell back to glyphs 12-17px wide in a 7.8px column. These faces take
-   those characters from a system mono font, sized to the 0.6em column. */
-@font-face {
-  font-family: "Terminal Drawing";
-  src: local("Menlo Regular"), local("Menlo-Regular"), local("DejaVu Sans Mono");
-  unicode-range: U+2190-21FF, U+2500-259F;
-  size-adjust: 99.67%;
-}
-@font-face {
-  font-family: "Terminal Drawing Windows";
-  src: local("Consolas");
-  unicode-range: U+2190-21FF, U+2500-259F;
-  size-adjust: 109.09%;
-}
-
 /* Monospace with kept spaces, as an extension's text is laid out for pi's TUI:
    a status box and its bars only line up in columns. */
 .markdown-custom-message {
-  font-family: "Terminal Drawing", "Terminal Drawing Windows", var(--font-mono);
+  font-family: var(--font-mono);
   font-size: calc(13px + var(--chat-font-size-offset, 0px));
   line-height: 1.32;
 }

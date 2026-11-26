@@ -1534,8 +1534,7 @@ function NoticeShelf({ notices, floating = false, onPauseChange }: { notices: No
             >
               {splitNoticeText(notice.message).map((part, partIndex) => part.kind === "art" ? (
                 // A terminal QR code or bar (#755): every space kept, rows touching, and a
-                // font stack whose first font has the blocks too (the bundled Noto subset
-                // has none, so spaces and blocks would come from fonts of different widths).
+                // Windows mono font, which draws the blocks and the spaces at one advance.
                 <span
                   key={partIndex}
                   style={{
@@ -1544,7 +1543,7 @@ function NoticeShelf({ notices, floating = false, onPauseChange }: { notices: No
                     maxWidth: "100%",
                     overflowX: "auto",
                     whiteSpace: "pre",
-                    fontFamily: "Menlo, Consolas, 'DejaVu Sans Mono', monospace",
+                    fontFamily: "Consolas, 'Cascadia Mono', monospace",
                     lineHeight: 1,
                     color: "var(--text)",
                   }}

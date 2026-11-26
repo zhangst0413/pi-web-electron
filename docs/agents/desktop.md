@@ -24,7 +24,7 @@ server as a child process, then loads its URL:
   source currently says, so the window never shows a previous build. When
   `.next` has no build, or a file under `app/`, `components/`, `hooks/`, `lib/`
   or one of the build configs is newer than its `BUILD_ID`, it runs
-  `next build --webpack` before opening the window; an unchanged tree reuses the
+  `next build` before opening the window; an unchanged tree reuses the
   build and starts straight away. The build-free paths stay: with
   `PI_WEB_DESKTOP_DEV=1` the shell runs `next dev`, and
   `PI_WEB_DESKTOP_URL=http://127.0.0.1:30141 npm run desktop` attaches the window
@@ -105,8 +105,11 @@ npm run desktop:pack   # next build + electron-builder --dir → desktop-dist/wi
 npm run desktop:dist   # next build + electron-builder → NSIS installer
 ```
 
-`npm run build` (webpack) must run before packaging: the packaged app carries
-`.next`. Do not run it as part of `npm run dev` (see AGENTS.md).
+`npm run build` must run before packaging: the packaged app carries `.next`. It
+builds with Turbopack (Next 16's default) in about 20s and needs no network: the
+UI uses the Windows system fonts, never `next/font/google`, which fetched a face
+from fonts.googleapis.com on every build. Do not run it as part of
+`npm run dev` (see AGENTS.md).
 
 ### Downloads go through mirrors
 

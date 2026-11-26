@@ -76,7 +76,7 @@ function buildIsStale(root = projectDir) {
 
 function build(root = projectDir) {
   const nextBin = path.join(root, "node_modules", "next", "dist", "bin", "next");
-  const result = spawnSync(process.execPath, [nextBin, "build", "--webpack"], {
+  const result = spawnSync(process.execPath, [nextBin, "build"], {
     cwd: root,
     stdio: "inherit",
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
