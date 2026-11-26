@@ -52,32 +52,32 @@ test("updates a reused message when its written files change", () => {
 test("on a narrow phone a message's actions drop their labels and keep their titles", () => {
   const html = renderMessage({ role: "user", content: "Hi", timestamp: 1 }, { entryId: "entry", onFork: () => {}, onEditContent: () => {} });
   assert.equal(html.match(/class="message-action-label"/g)?.length, 3);
-  for (const title of ["Copy message", "Edit from here — branches within this session", "New session — creates an independent copy from here"]) {
+  for (const title of ["复制消息", "从此处编辑，此会话内创建分支", "新会话，从此处创建独立副本"]) {
     assert.ok(html.includes(`title="${title}"`), title);
   }
   const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(css, /@media \(max-width: 380px\) \{\s*\.message-action-label \{\s*display: none;\s*\}\s*\}/);
 });
 
-test("a prompt sent during the run offers New session from the entry the wrapper named, not Edit (#1746)", () => {
+test("a prompt sent during the run offers 新会话 from the entry the wrapper named, not Edit (#1746)", () => {
   const props = { forkEntryId: "live-entry", onFork: () => {}, onEditContent: () => {} };
   const html = renderMessage({ role: "user", content: "Hi", timestamp: 1 }, props);
-  assert.ok(html.includes('title="New session — creates an independent copy from here"'));
-  assert.ok(!html.includes('title="Edit from here — branches within this session"'));
+  assert.ok(html.includes("title=\"新会话，从此处创建独立副本\""));
+  assert.ok(!html.includes("title=\"从此处编辑，此会话内创建分支\""));
   const without = renderMessage({ role: "user", content: "Hi", timestamp: 1 }, { onFork: () => {} });
-  assert.ok(!without.includes('title="New session — creates an independent copy from here"'));
+  assert.ok(!without.includes("title=\"新会话，从此处创建独立副本\""));
   const message = { role: "user", content: "Hi", timestamp: 1 };
   assert.equal(MessageView.compare({ message, onFork: props.onFork }, { message, ...props, onEditContent: undefined }), false);
 });
 
 test("streaming headers preserve counts and speed without showing empty metrics", () => {
   const renderHeader = (props) => renderToStaticMarkup(React.createElement(
-    I18nProvider, null, React.createElement(AssistantMessageHeader, { modelName: "Test Model", ...props }),
+    I18nProvider, null, React.createElement(AssistantMessageHeader, { modelName: "测试 模型", ...props }),
   ));
   for (const props of [{}, { estimatedTokens: 0, tps: 20 }]) {
     const html = renderHeader(props);
-    assert.match(html, />Test Model<\/span>/);
-    assert.doesNotMatch(html, /t\/s|Estimated token count while streaming/);
+    assert.match(html, />测试 模型<\/span>/);
+    assert.doesNotMatch(html, /t\/s|流式输出期间的估算 Token 数/);
   }
   const tokensOnly = renderHeader({ estimatedTokens: 100 });
   assert.match(tokensOnly, />100<\/span>/);
@@ -88,8 +88,8 @@ test("streaming headers preserve counts and speed without showing empty metrics"
 
   const message = { role: "assistant", provider: "test", model: "model", content: [{ type: "text", text: "Response" }] };
   const complete = renderMessage(message);
-  assert.doesNotMatch(complete, /Estimated token count while streaming/);
-  assert.match(renderMessage(message, { isStreaming: true }), /Estimated token count while streaming/);
+  assert.doesNotMatch(complete, /流式输出期间的估算 Token 数/);
+  assert.match(renderMessage(message, { isStreaming: true }), /流式输出期间的估算 Token 数/);
 });
 
 test("matches response model aliases and otherwise includes the provider", () => {
@@ -120,7 +120,7 @@ test("previews the first thinking line and reveals the full text with the saved 
       assert.match(html, new RegExp(`aria-expanded="${expanded}"`));
       assert.equal((html.match(/>[^<]*Independent reasoning[^<]*</g) ?? []).length, 1);
       assert.equal(html.includes("Detailed second line."), expanded);
-      assert.match(html, /aria-label="Thinking: /);
+      assert.match(html, /aria-label="思考: /);
       assert.match(html, /3s/);
     }
   } finally {
@@ -143,7 +143,7 @@ test("a reply's terminal escape sequences are not shown as text (#1753)", () => 
         }),
       ));
       assert.doesNotMatch(html, /\x1b|\[\d+(?:;\d+)*m/);
-      assert.match(html, /Thinking: Interesting: a plan/);
+      assert.match(html, /思考: Thinking: Interesting: a plan/);
       assert.equal(html.includes("Second line"), expanded);
     }
   } finally {
@@ -234,7 +234,7 @@ test("marks only the matched text block after splitting thinking and the final a
     role: "assistant",
     content: [
       { type: "thinking", thinking: "" },
-      { type: "thinking", thinking: "Thinking about the result" },
+      { type: "thinking", thinking: "思考级别 about the result" },
       { type: "text", text: "Process text" },
       { type: "toolCall", toolCallId: "read-1", toolName: "read", input: {} },
       { type: "text", text: "First answer" },
@@ -270,7 +270,7 @@ test("keeps streamed tool input out of collapsed markup while counting it", () =
   }, { isStreaming: true });
 
   assert.match(html, /write/);
-  assert.match(html, /Generating parameters/);
+  assert.match(html, /正在生成参数/);
   assert.doesNotMatch(html, /secret-stream-fragment/);
   assert.equal(getToolCallInputText(block), block.rawInput);
   assert.equal(getTokenEstimateText(block), block.rawInput);
@@ -480,7 +480,7 @@ test("a long or multi-line value stays inside the card", (t) => {
   assert.ok(textOf(html).includes("line 39"));
 });
 
-test("renders subagents as standard tool calls with only an extra side-panel button", () => {
+test("renders subagents as standard 次工具调用 with only an extra side-panel button", () => {
   const block = {
     type: "toolCall",
     toolCallId: "call-agent-1",
@@ -518,7 +518,7 @@ test("renders subagents as standard tool calls with only an extra side-panel but
   assert.match(html, /border:1px solid rgba\(34,197,94,0\.25\)/);
   assert.match(html, />Agent</);
   assert.match(html, />Explore</);
-  assert.match(html, /aria-label="View sub-agent work in side panel"/);
+  assert.match(html, /aria-label="在侧栏面板中查看子代理工作"/);
   assert.doesNotMatch(html, />completed</);
   assert.doesNotMatch(html, />Find parser</);
 
@@ -531,7 +531,7 @@ test("renders subagents as standard tool calls with only an extra side-panel but
     toolResults: new Map(),
     onOpenSubagent() {},
   });
-  assert.doesNotMatch(ordinaryHtml, /View sub-agent work in side panel/);
+  assert.doesNotMatch(ordinaryHtml, /在侧栏面板中查看子代理工作/);
 });
 
 test("a tool card shows the run time pi recorded, else the timestamps' difference, never a tiny one", () => {
@@ -562,7 +562,7 @@ src/main.ts`;
 test("a reply's usage line reads like pi's TUI footer, then the turn's time", () => {
   const usage = { input: 1_234, output: 567, cacheRead: 85_312, cacheWrite: 12, cost: { total: 0.00362 } };
   const html = renderMessage(
-    { role: "assistant", provider: "anthropic", model: "claude-test", content: [{ type: "text", text: "Done." }], stopReason: "stop", usage },
+    { role: "assistant", provider: "anthropic", model: "claude-test", content: [{ type: "text", text: "完成." }], stopReason: "stop", usage },
     { turnDurationMs: 10_000 },
   );
   // The arrows and the clock are drawn as SVG; their characters and words stay
@@ -570,10 +570,10 @@ test("a reply's usage line reads like pi's TUI footer, then the turn's time", ()
   assert.equal(html.match(/<svg[^>]*aria-hidden="true"/g)?.length, 3);
   const text = html.replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<span style="font-size:0">([^<]*)<\/span>/g, "$1");
   // Each count is its own span; the spaces between them stay in the text.
-  assert.match(text, /<span>↑1\.2k<\/span> <span>↓567<\/span> <span>R85k<\/span> <span>W12<\/span> <span>\$0\.0036<\/span> <span>·<\/span> <span>took 10s<\/span>/);
+  assert.match(text, /<span>↑1\.2k<\/span> <span>↓567<\/span> <span>R85k<\/span> <span>W12<\/span> <span>\$0\.0036<\/span> <span>·<\/span> <span>耗时 10s<\/span>/);
   // Zero counts are left out, as in the footer.
   const bare = renderMessage({
-    role: "assistant", provider: "anthropic", model: "claude-test", content: [{ type: "text", text: "Done." }], stopReason: "stop",
+    role: "assistant", provider: "anthropic", model: "claude-test", content: [{ type: "text", text: "完成." }], stopReason: "stop",
     usage: { input: 12_000_000, output: 0, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } },
   });
   assert.match(bare.replace(/<svg[\s\S]*?<\/svg>/g, "").replace(/<span style="font-size:0">([^<]*)<\/span>/g, "$1"), /<span>↑12M<\/span><\/div>/);
@@ -604,8 +604,8 @@ test("renders a truncation notice for stopReason length", () => {
   });
 
   assert.match(html, /role="alert"/);
-  assert.match(html, /output limit was reached before an answer/i);
-  assert.doesNotMatch(html, /follow-up/i);
+  assert.match(html, /输出在生成正文前就达到了上限/i);
+  assert.doesNotMatch(html, /后续消息/i);
 });
 
 test("keeps the follow-up hint when a truncated response already has text", () => {
@@ -618,8 +618,8 @@ test("keeps the follow-up hint when a truncated response already has text", () =
   });
 
   assert.match(html, /Partial answer/);
-  assert.match(html, /follow-up/i);
-  assert.doesNotMatch(html, /Compact context/);
+  assert.match(html, /后续消息/i);
+  assert.doesNotMatch(html, /压缩上下文/);
 });
 
 test("offers compaction on an unanswered truncation and keeps its error with the reply", () => {
@@ -635,7 +635,7 @@ test("offers compaction on an unanswered truncation and keeps its error with the
     compactError: "Summarization failed: generation hit the token cap",
   });
 
-  assert.match(html, /Compact context/);
+  assert.match(html, /压缩上下文/);
   assert.match(html, /generation hit the token cap/);
   assert.equal(compacted, 0);
 });
@@ -654,7 +654,7 @@ test("renders partial assistant content before the provider error", () => {
   assert.match(html, /Error: Connection closed/);
 });
 
-test("a stopped reply says Stopped, never the abort error its provider's client threw", () => {
+test("a stopped reply says 已中止, never the abort error its provider's client threw", () => {
   for (const errorMessage of ["Request aborted", "This operation was aborted", "OpenAI Responses stream ended before a terminal response event"]) {
     const html = renderMessage({
       role: "assistant",
@@ -665,7 +665,7 @@ test("a stopped reply says Stopped, never the abort error its provider's client 
       errorMessage,
     });
     assert.match(html, /Partial response/);
-    assert.match(html, />Stopped</);
+    assert.match(html, />已中止</);
     assert.ok(!html.includes(errorMessage), errorMessage);
   }
 
@@ -682,7 +682,7 @@ test("a stopped reply says Stopped, never the abort error its provider's client 
     stopReason: "aborted",
     errorMessage: "This operation was aborted",
   }, { toolResults: new Map() });
-  assert.ok(html.indexOf(">Stopped<") > html.indexOf("a.txt"));
+  assert.ok(html.indexOf(">已中止<") > html.indexOf("a.txt"));
 });
 
 test("a stopped reply's mark leads its usage line instead of a line of its own", () => {
@@ -695,8 +695,8 @@ test("a stopped reply's mark leads its usage line instead of a line of its own",
     errorMessage: "This operation was aborted",
     usage: { input: 1200, output: 34, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } },
   }, { turnDurationMs: 12_000 });
-  assert.match(html, /<span>Stopped<\/span> <span>·<\/span> <span><span[^>]*>↑<\/span>/);
-  assert.equal(html.split(">Stopped<").length, 2);
+  assert.match(html, /<span>已中止<\/span> <span>·<\/span> <span><span[^>]*>↑<\/span>/);
+  assert.equal(html.split(">已中止<").length, 2);
 });
 
 test("marks persisted assistant messages with their source entry", () => {
@@ -720,7 +720,7 @@ test("renders a complete SDK skill expansion as a compact command", () => {
   assert.match(html, /\/skill:review/);
   assert.match(html, /src\/main\.ts/);
   assert.match(html, /aria-expanded="false"/);
-  assert.doesNotMatch(html, /Review the supplied files/);
+  assert.doesNotMatch(html, /Review the supplied 个文件/);
 });
 
 test("does not collapse incomplete skill-looking user text", () => {
@@ -799,7 +799,7 @@ test("renders user-message images as buttons that open a larger preview", () => 
     timestamp: Date.now(),
   });
 
-  assert.match(html, /<button[^>]+aria-label="Preview image"[^>]*>/);
+  assert.match(html, /<button[^>]+aria-label="预览图片"[^>]*>/);
   assert.match(html, /<img[^>]+src="data:image\/png;base64,YWJj"/);
 });
 
@@ -809,7 +809,7 @@ test("marks apply_patch returned failures as errors even when isError is unset",
     toolCallId: "call-patch-1",
     toolName: "apply_patch",
     input: {
-      input: "*** Begin Patch\n*** Update File: src/a.ts\n-old\n+new\n*** End Patch",
+      input: "*** Begin Patch\n*** 更新 文件: src/a.ts\n-old\n+new\n*** End Patch",
     },
   };
   const failed = {
@@ -848,7 +848,7 @@ test("collapses a displayed custom message from its header alone", () => {
   assert.match(header(shown), /aria-expanded="true"/);
   assert.match(header(shown), />extension</);
   // The footer is for details only; it is not a second way to collapse.
-  assert.doesNotMatch(shown, /Show details|Hide details/);
+  assert.doesNotMatch(shown, /显示详情|隐藏详情/);
 
   // It starts expanded, as pi's TUI draws a displayed custom message in full.
   assert.match(shown, /a message with no details/);
@@ -858,7 +858,7 @@ test("collapses a displayed custom message from its header alone", () => {
   // A message that does carry details keeps that button, for its details.
   assert.match(
     custom({ content: [{ type: "text", text: "a message with details" }], details: { files: ["a.ts"] } }),
-    /Show details/,
+    /显示详情/,
   );
 });
 
@@ -870,7 +870,7 @@ test("renders custom-message images as buttons that open a larger preview", () =
     timestamp: Date.now(),
   });
 
-  assert.match(html, /<button[^>]+aria-label="Preview image"[^>]*>/);
+  assert.match(html, /<button[^>]+aria-label="预览图片"[^>]*>/);
   assert.match(html, /<img[^>]+src="data:image\/png;base64,YWJj"/);
 });
 
@@ -896,7 +896,7 @@ test("shows tool-result images while the tool details stay collapsed", () => {
     content: [block],
   }, { toolResults: new Map([[block.toolCallId, result]]) });
 
-  assert.match(html, /<button[^>]+aria-label="Preview image"[^>]*>/);
+  assert.match(html, /<button[^>]+aria-label="预览图片"[^>]*>/);
   assert.match(html, /<img[^>]+src="data:image\/png;base64,YWJj"/);
   assert.doesNotMatch(html, /captured-1280x720/);
   assert.doesNotMatch(html, /"tabId"/);
@@ -913,9 +913,9 @@ test("uses the unanswered truncation notice for an empty length reply", () => {
     stopReason: "length",
   });
 
-  assert.match(html, /output limit was reached before an answer/i);
-  assert.match(html, /nearly full context/i);
-  assert.doesNotMatch(html, /follow-up/i);
+  assert.match(html, /输出在生成正文前就达到了上限/i);
+  assert.match(html, /接近占满的上下文/i);
+  assert.doesNotMatch(html, /后续消息/i);
 });
 
 function textOf(html) {
@@ -954,10 +954,10 @@ test("collapses a codemode call to its first script line and call count", (t) =>
   const text = textOf(html);
   assert.match(text, /codemode/);
   assert.match(text, /const files = await tools\.ls\(\{ path: "\." \}\);/);
-  assert.match(text, /2 calls/);
+  assert.match(text, /2 次调用/);
   assert.doesNotMatch(text, /@options/);
   assert.doesNotMatch(text, /"code"/);
-  assert.doesNotMatch(text, /Tool calls/);
+  assert.doesNotMatch(text, /工具调用/);
 });
 
 test("expands a codemode call into its script, its calls, and the output without the header", (t) => {
@@ -991,15 +991,15 @@ test("expands a codemode call into its script, its calls, and the output without
   // The script sits in the plain box any tool's input uses, not a highlighted code block.
   assert.doesNotMatch(html, /markdown-code-block/);
   assert.equal(textOf(html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/)[1]), CODEMODE_SCRIPT);
-  assert.match(text, /Tool calls/);
-  assert.match(text, /Show 5 earlier calls/);
+  assert.match(text, /工具调用/);
+  assert.match(text, /工具调用显示更早的 5 次调用/);
   // The newest 20 of 25 calls are listed; the 5 oldest are folded.
   assert.doesNotMatch(text, /"file-5"/);
   assert.match(text, /"file-6"/);
   assert.match(text, /bash\{"path":"file-23"\}1\.5s/);
   assert.match(text, /exit code 2/);
-  assert.match(html, /aria-label="Failed"/);
-  assert.match(text, /Model calls: \$0\.01/);
+  assert.match(html, /aria-label="失败"/);
+  assert.match(text, /模型调用：\$0\.01/);
   assert.match(text, /Script error:\nError: exit code 2/);
   assert.doesNotMatch(text, /Wall time/);
   assert.doesNotMatch(text, /"code":/);
@@ -1019,9 +1019,9 @@ test("shows a running script's calls without an empty output", (t) => {
     },
   });
   const text = textOf(html);
-  assert.match(text, /201 calls/);
-  assert.match(text, /200 earlier calls not shown/);
-  assert.match(html, /aria-label="Running"/);
+  assert.match(text, /201 次调用/);
+  assert.match(text, /工具调用更早的 200 次调用未显示/);
+  assert.match(html, /aria-label="运行中"/);
   assert.doesNotMatch(text, /No output/i);
 });
 
@@ -1030,11 +1030,11 @@ test("a codemode call with no script or streaming input falls back to a plain bo
   setToolCallExpanded(streaming.toolCallId, true);
   t.after(() => setToolCallExpanded(streaming.toolCallId, false));
   const streamingText = textOf(renderCodemode(streaming));
-  assert.match(streamingText, /Generating parameters/);
+  assert.match(streamingText, /正在生成参数/);
   // The script so far, through the partial parse, rather than its JSON.
   assert.match(streamingText, /codeconst secret/);
   assert.doesNotMatch(streamingText, /\{"code"/);
-  assert.doesNotMatch(streamingText, /Tool calls/);
+  assert.doesNotMatch(streamingText, /工具调用/);
 
   const other = { type: "toolCall", toolCallId: "call-codemode-other", toolName: "codemode", input: { script: "x" } };
   setToolCallExpanded(other.toolCallId, true);
@@ -1065,14 +1065,14 @@ test("labels an MCP call server/tool and indents a JSON result", (t) => {
     toolResults: new Map([[block.toolCallId, {
       role: "toolResult",
       toolCallId: block.toolCallId,
-      content: [{ type: "text", text: "{\"hits\":[{\"title\":\"Code mode\"}]}" }],
+      content: [{ type: "text", text: "{\"hits\":[{\"title\":\"代码模式\"}]}" }],
       details: { server: "docs.v2", tool: "search" },
     }]]),
   });
   const text = textOf(html);
   assert.match(text, /docs\.v2\/search/);
   assert.match(html, /title="mcp__docs_v2__search"/);
-  assert.match(text, /\{\n {2}"hits": \[\n {4}\{\n {6}"title": "Code mode"/);
+  assert.match(text, /\{\n {2}"hits": \[\n {4}\{\n {6}"title": "代码模式"/);
 });
 
 test("keeps the registered name where no result names the server and tool", (t) => {
@@ -1111,11 +1111,11 @@ test("collapses the compaction summary to its title and token count, as pi's TUI
   };
   const html = renderMessage(message);
 
-  assert.match(html, /<button type="button" aria-expanded="false" title="Expand"/);
-  assert.match(html, /Conversation compacted/);
-  assert.ok(html.includes(`Compacted from ${(123456).toLocaleString()} tokens`));
-  assert.doesNotMatch(html, /Ship the parser fix|following summary|File context|lib\/read\.ts|lib\/changed\.ts/);
-  assert.doesNotMatch(renderMessage({ ...message, details: undefined }), /Compacted from/);
+  assert.match(html, /<button type="button" aria-expanded="false" title="展开"/);
+  assert.match(html, /会话已压缩/);
+  assert.ok(html.includes(`压缩前 ${(123456).toLocaleString()} Token`));
+  assert.doesNotMatch(html, /Ship the parser fix|following summary|文件 context|lib\/read\.ts|lib\/changed\.ts/);
+  assert.doesNotMatch(renderMessage({ ...message, details: undefined }), /压缩前/);
 
   // What the toggle reveals.
   const details = renderToStaticMarkup(React.createElement(
@@ -1126,7 +1126,7 @@ test("collapses the compaction summary to its title and token count, as pi's TUI
   // The header already says it was compacted; the summary follows with no sentence restating that.
   assert.doesNotMatch(details, /following summary/);
   assert.match(details, /Ship the parser fix/);
-  assert.match(details, /File context: 1 read, 1 modified/);
+  assert.match(details, /文件上下文：1 read, 1 modified/);
   assert.match(details, /lib\/read\.ts/);
   assert.match(details, /lib\/changed\.ts/);
 });
@@ -1227,7 +1227,7 @@ test("the same patch in one column: no line twice, the removed line above what r
   assert.equal(countIn(split, "const keep = true;"), 2);
 });
 
-test("one column names a file section by the file's own path, not by Before and After", () => {
+test("one column names a file section by the file's own path, not by 之前 and 之后", () => {
   const files = parseUnifiedPatch(`--- a/one.ts
 +++ b/one.ts
 @@ -1 +1 @@
@@ -1243,7 +1243,7 @@ test("one column names a file section by the file's own path, not by Before and 
 
   assert.ok(html.includes("b/one.ts"), "the first file names its section");
   assert.ok(html.includes("b/two.ts"), "the second file names its section");
-  assert.ok(!html.includes(">Before<") && !html.includes(">After<"), "two labels over one column read as two columns");
+  assert.ok(!html.includes(">之前<") && !html.includes(">之后<"), "two labels over one column read as two columns");
 });
 
 test("the layout is the viewport's choice, taken once for both the patch input and the patch result", () => {
@@ -1273,7 +1273,7 @@ test("one column numbers a removed line by the old file and every other line by 
   // done() is old line 12 but new line 13: the new file's number, as in the file viewer's gutter.
   assert.deepEqual(gutter, ["10", "11", "11", "12", "13", "30", "31"]);
   // The lines between the hunks stay marked, as in the two-column view.
-  assert.equal(countIn(stacked, "⋯ 17 unchanged lines"), 1);
+  assert.equal(countIn(stacked, "⋯ 17 行未改动"), 1);
 });
 
 test("one column names a deleted file's section by its old path", () => {

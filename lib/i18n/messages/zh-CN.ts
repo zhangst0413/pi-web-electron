@@ -6,7 +6,6 @@ export const zhCNLocale: LocalePlugin = {
   label: "简体中文",
   messages: {
     "common.ok": "确定",
-    "common.language": "语言",
     "common.models": "模型",
     "common.skills": "技能",
     "common.agents": "子代理",

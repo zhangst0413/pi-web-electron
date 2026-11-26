@@ -3,6 +3,7 @@ import test from "node:test";
 import { createJiti } from "jiti";
 
 const jiti = createJiti(import.meta.url, { tsconfigPaths: true });
+const { zhCNLocale } = await jiti.import("@/lib/i18n/messages/zh-CN.ts");
 const {
   MCP_CODEMODE_PROJECT_OVERRIDE_KEYS,
   MCP_CODEMODE_SAVE_TIMEOUT_MS,
@@ -93,9 +94,8 @@ const {
   mcpWithTestResults,
   postMcpTest,
 } = await jiti.import("./mcp-config-helpers.ts");
-const { enLocale } = await jiti.import("@/lib/i18n/messages/en.ts");
 
-const messages = enLocale.messages;
+const messages = zhCNLocale.messages;
 
 function server(overrides = {}) {
   return {

@@ -7,15 +7,15 @@ const jiti = createJiti(import.meta.url, {
   jsx: { runtime: "automatic" },
   tsconfigPaths: true,
 });
+const { zhCNLocale } = await jiti.import("@/lib/i18n/messages/zh-CN.ts");
 const React = await jiti.import("react");
 const { renderToStaticMarkup } = await jiti.import("react-dom/server");
 const { I18nProvider } = await jiti.import("@/hooks/useI18n");
 const { McpSignInRow } = await jiti.import("./McpSignIn.tsx");
-const { enLocale } = await jiti.import("@/lib/i18n/messages/en.ts");
 const source = await readFile(new URL("./McpSignIn.tsx", import.meta.url), "utf8");
 
 const h = React.createElement;
-const messages = enLocale.messages;
+const messages = zhCNLocale.messages;
 
 function decode(html) {
   return html.replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
@@ -67,41 +67,41 @@ function buttons(html) {
   return [...html.matchAll(/<button([^>]*)>([^<]*)<\/button>/g)].map(([, attributes, label]) => ({ attributes, label }));
 }
 
-test("a server with its own Authorization header has no Sign-in row: its Headers row lists the header", () => {
+test("a server with its own Authorization 请求头 has no 登录 row: its 请求头 row lists the header", () => {
   assert.equal(row({ server: { ...oauth, usesOAuth: false, headerNames: ["Accept", "authorization"] } }), "");
   // One that signs in some other way without OAuth still says how, with nothing to press.
   const html = row({ server: { ...oauth, usesOAuth: false } });
-  assert.equal(text(html), "Sign-in Authorization header");
+  assert.equal(text(html), "登录 Authorization 请求头");
   assert.deepEqual(buttons(html), []);
   const provider = row({ server: { ...oauth, usesOAuth: false, headerNames: ["Authorization"], authProvider: "github" } });
-  assert.match(text(provider), /^Sign-in Sends the token of the pi provider github/);
+  assert.match(text(provider), /^登录 发送 pi 提供商 github 的令牌/);
 });
 
-test("an OAuth server offers Sign in, says what it does and, once something is stored, that it may replace it, and Sign out", () => {
+test("an OAuth server offers 登录, says what it does and, once something is stored, that it may replace it, and 退出登录", () => {
   const out = row();
-  assert.deepEqual(buttons(out).map((button) => button.label), ["Sign in"]);
-  assert.match(text(out), /^Sign-in Not signed in\./);
+  assert.deepEqual(buttons(out).map((button) => button.label), ["登录"]);
+  assert.match(text(out), /^登录 未登录。/);
   // Nothing stored for the URL: nothing to replace, and nothing to sign out of.
-  assert.doesNotMatch(text(out), /may replace|Sign out deletes/);
+  assert.doesNotMatch(text(out), /may replace|退出登录 deletes/);
 
   const signedIn = row({ server: { ...oauth, signedIn: true } });
-  assert.deepEqual(buttons(signedIn).map((button) => button.label), ["Sign in", "Sign out"]);
-  assert.match(text(signedIn), /^Sign-in Signed in\./);
-  assert.match(text(signedIn), /Signing in may replace what is stored for this server\./);
-  assert.match(text(signedIn), /Sign out deletes what is stored for this server; open sessions lose access at their next request\./);
+  assert.deepEqual(buttons(signedIn).map((button) => button.label), ["登录", "退出登录"]);
+  assert.match(text(signedIn), /^登录 已登录。/);
+  assert.match(text(signedIn), /登录可能会替换此服务器已保存的令牌和注册信息。/);
+  assert.match(text(signedIn), /退出登录会删除此服务器保存的令牌和注册信息，已打开的会话在下次请求时失去访问权限。/);
   // An unreadable mcp-auth.json still offers Sign out.
-  assert.deepEqual(buttons(row({ server: { ...oauth, signedIn: undefined } })).map((button) => button.label), ["Sign in", "Sign out"]);
+  assert.deepEqual(buttons(row({ server: { ...oauth, signedIn: undefined } })).map((button) => button.label), ["登录", "退出登录"]);
   // A cancelled or expired sign-in leaves a client registration and its PKCE state but no tokens:
   // Sign out still clears them, as `pi mcp logout` would.
   const leftover = row({ server: { ...oauth, signedIn: false, oauthStateStored: true } });
-  assert.deepEqual(buttons(leftover).map((button) => button.label), ["Sign in", "Sign out"]);
-  assert.match(text(leftover), /^Sign-in Not signed in, but a client registration or an unfinished sign-in is stored for this server\./);
-  assert.deepEqual(buttons(row({ server: { ...oauth, signedIn: false, oauthStateStored: false } })).map((button) => button.label), ["Sign in"]);
+  assert.deepEqual(buttons(leftover).map((button) => button.label), ["登录", "退出登录"]);
+  assert.match(text(leftover), /^登录 未登录，但保存了此服务器的客户端注册信息或未完成的登录。/);
+  assert.deepEqual(buttons(row({ server: { ...oauth, signedIn: false, oauthStateStored: false } })).map((button) => button.label), ["登录"]);
   // While a change runs, Sign out waits; Sign in, which writes no mcp.json, does not.
   const busy = buttons(row({ server: { ...oauth, signedIn: true }, controlsBusy: true }));
   assert.doesNotMatch(busy[0].attributes, /disabled/);
   assert.match(busy[1].attributes, /disabled=""/);
-  assert.equal(buttons(row({ server: { ...oauth, signedIn: true }, controlsBusy: true, signingOut: true }))[1].label, "Signing out…");
+  assert.equal(buttons(row({ server: { ...oauth, signedIn: true }, controlsBusy: true, signingOut: true }))[1].label, "正在退出登录…");
   // A Sign out on its way would cancel a sign-in that reached the server first, so Sign in waits for it.
   assert.match(buttons(row({ server: { ...oauth, signedIn: true }, controlsBusy: true, signingOut: true }))[0].attributes, /disabled=""/);
 });
@@ -113,104 +113,104 @@ test("a blocked sign-in is disabled and points at the visible reason", () => {
     assert.match(button.attributes, /disabled=""/);
     const id = button.attributes.match(/aria-describedby="([^"]+)"/)?.[1];
     assert.ok(id, button.label);
-    assert.match(html, new RegExp(`<span id="${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}" class="mcp-config-line is-dim">This project is not trusted, so Pi Web does not sign in to or out of its servers\\.</span>`));
+    assert.match(html, new RegExp(`<span id="${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}" class="mcp-config-line is-dim">此项目未受信任，因此 Pi Web 不会登录或退出它的服务器。</span>`));
   }
-  assert.doesNotMatch(text(html), /may replace|Sign out deletes/, "no explanation of what cannot be done");
+  assert.doesNotMatch(text(html), /may replace|退出登录 deletes/, "no explanation of what cannot be done");
   // A PI_WEB_PASSWORD entry cannot sign in, but its tokens can still go.
   const password = buttons(row({ server: { ...oauth, signedIn: true }, block: "web-password" }));
   assert.match(password[0].attributes, /disabled=""/);
   assert.doesNotMatch(password[1].attributes, /disabled/);
 });
 
-test("a sign-in under way says what it does, and offers Cancel instead", () => {
+test("a sign-in under way says what it does, and offers 取消 instead", () => {
   const connecting = row({ run: { flow: flow("connecting") } });
-  assert.match(connecting, /<span role="status" class="mcp-config-line">Checking whether the server asks for a sign-in…<\/span>/);
-  assert.deepEqual(buttons(connecting).map((button) => button.label), ["Cancel sign-in"]);
-  assert.match(row({ run: { flow: flow("starting") } }), /Preparing the sign-in with the server's authorization server…/);
+  assert.match(connecting, /<span role="status" class="mcp-config-line">正在检查服务器是否要求登录…<\/span>/);
+  assert.deepEqual(buttons(connecting).map((button) => button.label), ["取消登录"]);
+  assert.match(row({ run: { flow: flow("starting") } }), /正在通过服务器的授权服务器准备登录…/);
   const finishing = row({ run: { flow: flow("finishing") } });
-  assert.match(finishing, /Finishing the sign-in…/);
+  assert.match(finishing, /正在完成登录…/);
   assert.match(buttons(finishing)[0].attributes, /disabled=""/, "the code is on its way: nothing left to cancel");
   // Why it cannot be cancelled is a visible line the disabled button points at.
   const noCancel = buttons(finishing)[0].attributes.match(/aria-describedby="([^"]+)"/)?.[1];
   assert.ok(noCancel);
-  assert.match(finishing, new RegExp(`<span id="${noCancel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}" class="mcp-config-line is-dim">The authorization server has answered, so this step can no longer be cancelled\\.</span>`));
+  assert.match(finishing, new RegExp(`<span id="${noCancel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}" class="mcp-config-line is-dim">授权服务器已经回应，因此这一步无法再取消。</span>`));
   assert.doesNotMatch(buttons(connecting)[0].attributes, /aria-describedby/);
   assert.doesNotMatch(text(connecting), /can no longer be cancelled/);
-  assert.equal(buttons(row({ run: { flow: flow("connecting"), cancelling: true } }))[0].label, "Cancelling…");
+  assert.equal(buttons(row({ run: { flow: flow("connecting"), cancelling: true } }))[0].label, "正在取消…");
   // No Sign out while one runs.
-  assert.deepEqual(buttons(row({ server: { ...oauth, signedIn: true }, run: { flow: flow("connecting") } })).map((button) => button.label), ["Cancel sign-in"]);
+  assert.deepEqual(buttons(row({ server: { ...oauth, signedIn: true }, run: { flow: flow("connecting") } })).map((button) => button.label), ["取消登录"]);
   // The other file's entry of the same name and URL started it: the row says whose it is.
-  assert.match(text(row({ run: { flow: flow("connecting", { scope: "project" }) } })), /The other docs entry, with the same URL, started this sign-in: the tokens serve both\./);
+  assert.match(text(row({ run: { flow: flow("connecting", { scope: "project" }) } })), /另一个同名的 docs 条目使用相同的 URL，这是它的登录：令牌对两者都有效。/);
 });
 
 test("waiting for the browser shows the page as a link, the paste box, and where the browser goes back to", () => {
   const html = row({ run: { flow: flow("authorize", { authorizationUrl: PAGE, redirectUrl: "http://127.0.0.1:53682/callback" }) } });
-  assert.match(html, /<p class="oauth-paste-message">Open the sign-in page and approve access\./);
-  assert.match(html, new RegExp(`<p class="oauth-paste-hint">Sign-in page: <a href="${PAGE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}" target="_blank" rel="noopener noreferrer">`));
+  assert.match(html, /<p class="oauth-paste-message">打开登录页并批准访问。/);
+  assert.match(html, new RegExp(`<p class="oauth-paste-hint">登录页： <a href="${PAGE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}" target="_blank" rel="noopener noreferrer">`));
   // The box is never focused by itself, has a name, and submits only a value.
-  assert.match(html, /<input class="oauth-paste-input" placeholder="http:\/\/127\.0\.0\.1:…\/callback\?code=…" aria-label="Address the browser landed on" value=""\/>/);
-  assert.match(html, /<button type="button" class="oauth-paste-submit" disabled="">Continue<\/button>/);
-  assert.match(text(html), /After you approve, the browser is sent to http:\/\/127\.0\.0\.1:53682\/callback, which only the computer running Pi Web can open\./);
-  assert.match(text(html), /Pi Web waits up to 5 minutes from the start of the sign-in\./);
-  assert.deepEqual(buttons(html).map((button) => button.label), ["Continue", "Cancel sign-in"]);
+  assert.match(html, /<input class="oauth-paste-input" placeholder="http:\/\/127\.0\.0\.1:…\/callback\?code=…" aria-label="浏览器最终打开的地址" value=""\/>/);
+  assert.match(html, /<button type="button" class="oauth-paste-submit" disabled="">继续<\/button>/);
+  assert.match(text(html), /批准后，浏览器会被发送到 http:\/\/127\.0\.0\.1:53682\/callback，只有运行 Pi Web 的计算机才能打开它。/);
+  assert.match(text(html), /Pi Web 从登录开始起最多等待 5 分钟。/);
+  assert.deepEqual(buttons(html).map((button) => button.label), ["继续", "取消登录"]);
 
   // A page that is not an http(s) address is shown as text, never as a link.
   const odd = row({ run: { flow: flow("authorize", { authorizationUrl: "javascript:alert(1)" }) } });
   assert.doesNotMatch(odd, /<a /);
-  assert.match(text(odd), /The server's sign-in page is not a web address, so it is shown as text only: javascript:alert\(1\)/);
+  assert.match(text(odd), /服务器给出的登录页不是网址，因此只以文本显示： javascript:alert\(1\)/);
 
   // A refused paste says why in the panel's words, and the box stays.
   const refused = row({ run: { flow: flow("authorize", { authorizationUrl: PAGE }), pasteError: { error: "x", reason: "redirect-state-mismatch" } } });
-  assert.match(refused, /<span role="alert" class="mcp-config-line is-error">That address does not finish this sign-in: That address belongs to another sign-in\./);
+  assert.match(refused, /<span role="alert" class="mcp-config-line is-error">该地址无法完成这次登录： 该地址属于另一次登录。请粘贴这次登录后浏览器最终打开的地址。/);
   assert.match(refused, /class="oauth-paste-input"/);
   const denied = row({ run: { flow: flow("authorize", { authorizationUrl: PAGE }), pasteError: { error: "The user said no", reason: "redirect-denied" } } });
-  assert.match(text(denied), /The authorization server did not grant access\. Open the sign-in page again, or cancel\. The user said no/);
+  assert.match(text(denied), /授权服务器没有授予访问权限。请重新打开登录页，或取消。 The user said no/);
   // While a paste is checked, the box and its button wait.
   const pasting = row({ run: { flow: flow("authorize", { authorizationUrl: PAGE }), pasting: true } });
   assert.match(pasting, /<input class="oauth-paste-input"[^>]*disabled=""/);
-  assert.match(pasting, /<button type="button" class="oauth-paste-submit" disabled="">Checking…<\/button>/);
+  assert.match(pasting, /<button type="button" class="oauth-paste-submit" disabled="">正在检查…<\/button>/);
 });
 
-test("how the sign-in ended stays under the row, with Sign in again", () => {
+test("how the sign-in ended stays under the row, with 登录 again", () => {
   const result = (state, extra = {}) => ({ state, tools: [], toolCount: 1, durationMs: 4, testedAt: 1, afterSignIn: true, ...extra });
-  assert.match(text(row({ run: { flow: flow("done", { result: result("connected") }) } })), /Signed in\. Status above shows what the server offers\./);
-  assert.match(text(row({ run: { flow: flow("done", { alreadySignedIn: true, result: result("connected") }) } })), /Already signed in: the server connected without a new sign-in\./);
-  assert.match(text(row({ run: { flow: flow("done", { refreshed: true, result: result("connected") }) } })), /Signed in again with the stored refresh token, without the browser\./);
+  assert.match(text(row({ run: { flow: flow("done", { result: result("connected") }) } })), /已登录。上方的“状态”显示服务器提供的内容。/);
+  assert.match(text(row({ run: { flow: flow("done", { alreadySignedIn: true, result: result("connected") }) } })), /已经登录：服务器无需重新登录就连接上了。/);
+  assert.match(text(row({ run: { flow: flow("done", { refreshed: true, result: result("connected") }) } })), /已使用保存的刷新令牌重新登录，无需浏览器。/);
   const after = row({ run: { flow: flow("done", { result: result("failed", { error: "ECONNRESET" }) }) } });
-  assert.match(after, /<span role="status" class="mcp-config-line is-warning">Signed in, but the server did not connect afterwards\. Status above says why\.<\/span>/);
+  assert.match(after, /<span role="status" class="mcp-config-line is-warning">已登录，但之后服务器没有连接成功。上方的“状态”说明了原因。<\/span>/);
   const failed = row({ run: { flow: flow("failed", { failure: "sign-in-failed", error: "registration failed: •••" }) } });
-  assert.match(failed, /<span role="status" class="mcp-config-line is-error">The sign-in failed\.<\/span><span class="mcp-config-line is-error">Error: <code class="mcp-config-chip">registration failed: •••<\/code><\/span>/);
-  assert.match(text(row({ run: { flow: flow("expired") } })), /The sign-in was not finished within 5 minutes, so Pi Web stopped waiting\./);
-  assert.match(text(row({ run: { flow: flow("cancelled") } })), /Sign-in cancelled\./);
-  assert.deepEqual(buttons(row({ run: { flow: flow("cancelled") } })).map((button) => button.label), ["Sign in"]);
+  assert.match(failed, /<span role="status" class="mcp-config-line is-error">登录失败。<\/span><span class="mcp-config-line is-error">错误： <code class="mcp-config-chip">registration failed: •••<\/code><\/span>/);
+  assert.match(text(row({ run: { flow: flow("expired") } })), /登录没有在 5 分钟内完成，因此 Pi Web 停止了等待。/);
+  assert.match(text(row({ run: { flow: flow("cancelled") } })), /已取消登录。/);
+  assert.deepEqual(buttons(row({ run: { flow: flow("cancelled") } })).map((button) => button.label), ["登录"]);
   // A flow the server forgot, and requests that failed, each say so.
-  assert.match(text(row({ run: { flow: flow("authorize"), gone: true } })), /Pi Web no longer knows this sign-in: it ended a while ago, or Pi Web restarted\. Press Sign in to start again\./);
-  assert.match(text(row({ run: { error: { error: "x", reason: "sign-in-not-oauth" } } })), /Could not sign in: This server does not sign in with OAuth: only an HTTP server without an Authorization header does\./);
-  assert.match(text(row({ run: { error: { error: "x", reason: "project-untrusted" } } })), /Could not sign in: This project is not trusted, so Pi Web does not sign in to or out of its servers\./);
-  assert.match(text(row({ run: { error: { error: "x", reason: "unparsable" } } })), /Could not sign in: Pi Web cannot read this entry from its file anymore\. Press Refresh\./);
-  assert.match(text(row({ run: { error: { error: "GET timed out", timedOut: true } } })), /Pi Web did not answer in time\. Press Sign in again to see the sign-in under way\./);
-  assert.match(text(row({ server: { ...oauth, signedIn: true }, run: { signOutError: { error: "x", timedOut: true } } })), /Could not sign out: Pi Web did not answer in time, so the change may not have been made\./);
-  assert.match(text(row({ run: { signedOut: { removed: true } } })), /Signed out: the tokens stored for this server were deleted\./);
-  assert.match(text(row({ run: { signedOut: { removed: false } } })), /Nothing was stored for this server, so there was nothing to sign out of\./);
+  assert.match(text(row({ run: { flow: flow("authorize"), gone: true } })), /Pi Web 已不再记得这次登录：它已结束一段时间，或者 Pi Web 已重启。按“登录”重新开始。/);
+  assert.match(text(row({ run: { error: { error: "x", reason: "sign-in-not-oauth" } } })), /无法登录： 此服务器不通过 OAuth 登录：只有没有 Authorization 请求头的 HTTP 服务器才会这样登录。/);
+  assert.match(text(row({ run: { error: { error: "x", reason: "project-untrusted" } } })), /无法登录： 此项目未受信任，因此 Pi Web 不会登录或退出它的服务器。/);
+  assert.match(text(row({ run: { error: { error: "x", reason: "unparsable" } } })), /无法登录： Pi Web 已无法从文件中读取此条目。请按“刷新”。/);
+  assert.match(text(row({ run: { error: { error: "GET timed out", timedOut: true } } })), /Pi Web 没有及时响应。再按一次“登录”可查看正在进行的登录。/);
+  assert.match(text(row({ server: { ...oauth, signedIn: true }, run: { signOutError: { error: "x", timedOut: true } } })), /无法退出登录： Pi Web 没有及时响应，更改可能未生效。/);
+  assert.match(text(row({ run: { signedOut: { removed: true } } })), /已退出登录：为该服务器保存的令牌已删除。/);
+  assert.match(text(row({ run: { signedOut: { removed: false } } })), /该服务器没有保存任何内容，因此无需退出登录。/);
 });
 
-test("a sign-in joined from the other entry of the name and URL ends naming that entry, not this one's Status row", () => {
+test("a sign-in joined from the other entry of the name and URL ends naming that entry, not this one's 状态 row", () => {
   const result = { state: "connected", tools: [], toolCount: 1, durationMs: 4, testedAt: 1, afterSignIn: true };
   const done = text(row({ run: { flow: flow("done", { scope: "project", result }) } }));
-  assert.match(done, /Signed in through the other docs entry, which has the same URL, so the tokens serve this entry too\. Press Test connection to see what this entry's server offers\./);
-  assert.doesNotMatch(done, /Status above/);
-  assert.match(text(row({ run: { flow: flow("done", { scope: "project", alreadySignedIn: true, result }) } })), /The other docs entry, which has the same URL, was already signed in/);
+  assert.match(done, /已通过另一个同名的 docs 条目登录，它使用相同的 URL，因此令牌对此条目同样有效。按“测试连接”查看此条目的服务器提供的内容。/);
+  assert.doesNotMatch(done, /状态 above/);
+  assert.match(text(row({ run: { flow: flow("done", { scope: "project", alreadySignedIn: true, result }) } })), /另一个同名的 docs 条目使用相同的 URL，并且已经登录/);
   const failed = text(row({ run: { flow: flow("failed", { scope: "project", failure: "connect-failed", result: { ...result, state: "failed" } }) } }));
-  assert.match(failed, /The sign-in through the other docs entry, which has the same URL, found nothing to sign in to: that entry's server did not connect, and did not ask for a sign-in\. Its Status row says why\./);
+  assert.match(failed, /通过另一个同名的 docs 条目（使用相同的 URL）进行的登录没有可登录的内容：该条目的服务器没有连接成功，也没有要求登录。它的“状态”一行说明了原因。/);
   // The entry that started it keeps its own words.
-  assert.match(text(row({ run: { flow: flow("done", { result }) } })), /Signed in\. Status above shows what the server offers\./);
+  assert.match(text(row({ run: { flow: flow("done", { result }) } })), /已登录。上方的“状态”显示服务器提供的内容。/);
 });
 
 test("a failed cancel is shown while the sign-in runs, and not once it has ended", () => {
   const cancelError = { error: "DELETE timed out", timedOut: true };
-  assert.match(text(row({ run: { flow: flow("authorize", { authorizationUrl: PAGE }), cancelError } })), /Could not cancel the sign-in: Pi Web did not answer in time\. The sign-in may still be under way/);
+  assert.match(text(row({ run: { flow: flow("authorize", { authorizationUrl: PAGE }), cancelError } })), /无法取消登录： Pi Web 没有及时响应。登录可能仍在进行；一旦有进展，这里会显示。/);
   const ended = text(row({ run: { flow: flow("done", { result: { state: "connected", tools: [], toolCount: 1, durationMs: 4, testedAt: 1 } }), cancelError } }));
-  assert.match(ended, /Signed in\./);
+  assert.match(ended, /已登录。/);
   assert.doesNotMatch(ended, /Could not cancel/);
   assert.doesNotMatch(text(row({ run: { flow: flow("authorize"), gone: true, cancelError } })), /Could not cancel/);
 });

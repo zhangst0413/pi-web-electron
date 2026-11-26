@@ -119,10 +119,10 @@ test("the pinned header toggles the section and shows activity dots only while c
   assert.match(collapsed, /^<div class="session-tree-row session-tree-pinned-header" style="top:0;height:28px" data-row-key="pinned-header">/);
   assert.match(collapsed, /<button type="button" class="session-tree-pinned-toggle" aria-expanded="false">/);
   // Its chevron leads, in the chevron column, decoration only; no pin icon.
-  assert.match(collapsed, /aria-expanded="false"><svg width="12" height="12"[^>]*stroke-width="3"[^>]*class="session-tree-chevron" aria-hidden="true">[\s\S]*?<\/svg><span class="session-tree-pinned-label">Pinned<\/span><span class="session-tree-pinned-count">· 3<\/span><span class="session-tree-pinned-dot is-running"/);
+  assert.match(collapsed, /aria-expanded="false"><svg width="12" height="12"[^>]*stroke-width="3"[^>]*class="session-tree-chevron" aria-hidden="true">[\s\S]*?<\/svg><span class="session-tree-pinned-label">置顶<\/span><span class="session-tree-pinned-count">· 3<\/span><span class="session-tree-pinned-dot is-running"/);
   assert.doesNotMatch(collapsed, /session-tree-group-icon/);
-  assert.match(collapsed, /class="session-tree-pinned-dot is-running" role="img" title="Agent running…" aria-label="Agent running… \(1\)"/);
-  assert.match(collapsed, /class="session-tree-pinned-dot is-unread" role="img" title="New session activity" aria-label="New session activity \(2\)"/);
+  assert.match(collapsed, /class="session-tree-pinned-dot is-running" role="img" title="Agent 运行中…" aria-label="Agent 运行中… \(1\)"/);
+  assert.match(collapsed, /class="session-tree-pinned-dot is-unread" role="img" title="会话有新活动" aria-label="会话有新活动 \(2\)"/);
   assert.doesNotMatch(collapsed, /session-tree-pinned-dot is-awaiting/);
   assert.doesNotMatch(collapsed, /session-tree-chevron is-open/);
 
@@ -138,14 +138,14 @@ test("a collapsed pinned header shows an awaiting dot of its own, without the ru
   const collapsed = rowMarkup(render({
     rows: [{ kind: "pinned-header", key: "pinned-header", count: 2, collapsed: true, running: 0, awaiting: 2, unread: 0 }],
   }), "pinned-header");
-  assert.match(collapsed, /class="session-tree-pinned-dot is-awaiting" role="img" title="Agent waiting for your input" aria-label="Agent waiting for your input \(2\)"/);
+  assert.match(collapsed, /class="session-tree-pinned-dot is-awaiting" role="img" title="Agent 等待你的输入" aria-label="Agent 等待你的输入 \(2\)"/);
   assert.doesNotMatch(collapsed, /session-tree-pinned-dot is-running/);
 });
 
 test("a collapsed group shows awaiting families apart from running ones", () => {
   const mixed = rowMarkup(render({ rows: [groupRow({ expanded: false, running: 1, awaiting: 2, unread: 0 })] }), "group:/work/app");
-  assert.match(mixed, /aria-label="Agent running… \(1\)"/);
-  assert.match(mixed, /<span class="session-tree-summary-awaiting" role="img" title="Agent waiting for your input" aria-label="Agent waiting for your input \(2\)"><span class="session-tree-summary-dot is-awaiting"><\/span>2<\/span>/);
+  assert.match(mixed, /aria-label="Agent 运行中… \(1\)"/);
+  assert.match(mixed, /<span class="session-tree-summary-awaiting" role="img" title="Agent 等待你的输入" aria-label="Agent 等待你的输入 \(2\)"><span class="session-tree-summary-dot is-awaiting"><\/span>2<\/span>/);
 
   // Only awaiting: the amber count, no spinner.
   const awaiting = rowMarkup(render({ rows: [groupRow({ expanded: false, running: 0, awaiting: 1, unread: 0 })] }), "group:/work/app");
@@ -166,11 +166,11 @@ test("a collapsed group shows its running and unread counts and labelled actions
   assert.match(html, /<span class="session-tree-group-name">app<\/span><svg[^>]*class="session-tree-group-pin"[\s\S]*?<\/svg><span class="session-tree-summary">/);
   // No folder: a project group is no second file tree.
   assert.doesNotMatch(html, /session-tree-group-icon/);
-  assert.match(html, /<svg[^>]*class="session-tree-group-pin" role="img" aria-label="Pinned"/);
-  assert.match(html, /aria-label="Agent running… \(2\)"/);
-  assert.match(html, /aria-label="New session activity \(1\)"/);
-  assert.match(html, /aria-label="New session in app" title="New session in app"/);
-  assert.match(html, /aria-label="app actions" title="app actions" aria-haspopup="menu" aria-expanded="false"/);
+  assert.match(html, /<svg[^>]*class="session-tree-group-pin" role="img" aria-label="已置顶"/);
+  assert.match(html, /aria-label="Agent 运行中… \(2\)"/);
+  assert.match(html, /aria-label="会话有新活动 \(1\)"/);
+  assert.match(html, /aria-label="在 app 新建会话" title="在 app 新建会话"/);
+  assert.match(html, /aria-label="app 的操作" title="app 的操作" aria-haspopup="menu" aria-expanded="false"/);
 
   const expanded = rowMarkup(render({ rows: [groupRow({ expanded: true, running: 2, unread: 1 })] }), "group:/work/app");
   assert.match(expanded, /session-tree-group is-current/);
@@ -182,11 +182,11 @@ test("a collapsed group shows its running and unread counts and labelled actions
 test("a group's ⋯ shows its open menu; its + starts a session at once", () => {
   const more = rowMarkup(render({ rows: [groupRow()], activeMenuRowKey: "group:/work/app" }), "group:/work/app");
   assert.match(more, /session-tree-group is-current is-active/);
-  assert.match(more, /class="session-tree-group-action is-active" aria-label="app actions"[^>]*aria-expanded="true"/);
+  assert.match(more, /class="session-tree-group-action is-active" aria-label="app 的操作"[^>]*aria-expanded="true"/);
 
   // The + opens nothing and never waits: no popup, busy or disabled state.
-  const plus = rowMarkup(render({ rows: [groupRow()] }), "group:/work/app").match(/<button[^>]*aria-label="New session in app"[^>]*>/)[0];
-  assert.equal(plus, '<button type="button" class="session-tree-group-action" aria-label="New session in app" title="New session in app">');
+  const plus = rowMarkup(render({ rows: [groupRow()] }), "group:/work/app").match(/<button[^>]*aria-label="在 app 新建会话"[^>]*>/)[0];
+  assert.equal(plus, "<button type=\"button\" class=\"session-tree-group-action\" aria-label=\"在 app 新建会话\" title=\"在 app 新建会话\">");
 });
 
 test("an idle session row shows its short time, branch and both actions", () => {
@@ -196,10 +196,10 @@ test("an idle session row shows its short time, branch and both actions", () => 
   // Nothing before the title: it gets the room; the time sits at the right.
   // A saved session's title is a real link to it (middle-click, Ctrl/Cmd-click).
   // The branch keeps the upstream icon and type; the tooltip keeps the ⑂ glyph.
-  assert.match(html, /<a class="session-tree-main" href="\?session=idle" title="[^"]*"><span class="session-tree-title">first idle<\/span><span class="session-tree-branch"><svg width="10" height="10"[^>]*class="session-tree-branch-icon" aria-hidden="true">[\s\S]*?<\/svg>feat\/rows<\/span><span class="session-tree-meta">5m<\/span><\/a>/);
-  assert.match(html, /title="first idle\n3 msgs · 5 minutes ago · ⑂ feat\/rows"/);
-  assert.match(html, /class="session-tree-action session-tree-quick-action" aria-label="Archive" title="Archive"/);
-  assert.match(html, /class="session-tree-action session-tree-more-action" aria-label="More actions" title="More actions" aria-haspopup="menu" aria-expanded="false"/);
+  assert.match(html, /<a class="session-tree-main" href="\?session=idle" title="[^"]*"><span class="session-tree-title">first idle<\/span><span class="session-tree-branch"><svg width="10" height="10"[^>]*class="session-tree-branch-icon" aria-hidden="true">[\s\S]*?<\/svg>feat\/rows<\/span><span class="session-tree-meta">5分<\/span><\/a>/);
+  assert.match(html, /title="first idle\n3 条消息 · 5分钟前 · ⑂ feat\/rows"/);
+  assert.match(html, /class="session-tree-action session-tree-quick-action" aria-label="归档" title="归档"/);
+  assert.match(html, /class="session-tree-action session-tree-more-action" aria-label="更多操作" title="更多操作" aria-haspopup="menu" aria-expanded="false"/);
   assert.doesNotMatch(html, /aria-current/);
 });
 
@@ -230,16 +230,16 @@ test("a running row shows the labelled spinner and cannot be archived from the r
   const html = rowMarkup(render({ rows: [sessionRow(session("run"), { status: { running: true, unread: true } })] }), "session:group:run");
   // The spinner takes the time's place at the right, and the row says it is running.
   assert.match(html, /class="session-tree-row session-tree-session is-running"/);
-  assert.match(html, /<span class="session-tree-title">first run<\/span><span class="session-tree-meta is-running" title="Agent running…"><svg[^>]*class="sidebar-spin" role="img" aria-label="Agent running…"/);
+  assert.match(html, /<span class="session-tree-title">first run<\/span><span class="session-tree-meta is-running" title="Agent 运行中…"><svg[^>]*class="sidebar-spin" role="img" aria-label="Agent 运行中…"/);
   assert.doesNotMatch(html, /session-tree-slot/);
   assert.doesNotMatch(html, /session-tree-unread/);
-  assert.doesNotMatch(html, /aria-label="Archive"/);
-  assert.match(html, /aria-label="More actions"/);
+  assert.doesNotMatch(html, /aria-label="归档"/);
+  assert.match(html, /aria-label="更多操作"/);
 });
 
 test("an unread row shows the labelled unread dot", () => {
   const html = rowMarkup(render({ rows: [sessionRow(session("new"), { status: { unread: true } })] }), "session:group:new");
-  assert.match(html, /<span class="session-tree-meta is-unread" title="New activity"><span class="session-tree-unread" role="img" aria-label="New session activity"><\/span><\/span>/);
+  assert.match(html, /<span class="session-tree-meta is-unread" title="有新活动"><span class="session-tree-unread" role="img" aria-label="会话有新活动"><\/span><\/span>/);
 });
 
 test("an awaiting row shows the amber dot in the spinner's slot", () => {
@@ -249,11 +249,11 @@ test("an awaiting row shows the amber dot in the spinner's slot", () => {
   // Awaiting wins the slot (it is the one thing worth knowing), and the row is
   // still the running row it is: same class, same actions, no archive button.
   assert.match(html, /class="session-tree-row session-tree-session is-running"/);
-  assert.match(html, /<span class="session-tree-title">first ask<\/span><span class="session-tree-meta is-awaiting" title="Agent waiting for your input"><span class="session-tree-awaiting" role="img" aria-label="Agent waiting for your input"><\/span><\/span>/);
+  assert.match(html, /<span class="session-tree-title">first ask<\/span><span class="session-tree-meta is-awaiting" title="Agent 等待你的输入"><span class="session-tree-awaiting" role="img" aria-label="Agent 等待你的输入"><\/span><\/span>/);
   assert.doesNotMatch(html, /sidebar-spin/);
   assert.doesNotMatch(html, /session-tree-unread/);
-  assert.doesNotMatch(html, /aria-label="Archive"/);
-  assert.match(html, /aria-label="More actions"/);
+  assert.doesNotMatch(html, /aria-label="归档"/);
+  assert.match(html, /aria-label="更多操作"/);
 });
 
 test("the selected row is marked and its menu button reports an open menu", () => {
@@ -267,8 +267,8 @@ test("the selected row is marked and its menu button reports an open menu", () =
 test("a transient row offers no actions at all", () => {
   const html = rowMarkup(render({ rows: [sessionRow(session("tmp"), { status: { transient: true } })] }), "session:group:tmp");
   assert.doesNotMatch(html, /session-tree-actions/);
-  assert.doesNotMatch(html, /More actions/);
-  assert.doesNotMatch(html, /aria-label="Archive"/);
+  assert.doesNotMatch(html, /更多操作/);
+  assert.doesNotMatch(html, /aria-label="归档"/);
   assert.match(html, /session-tree-title">first tmp</);
   // No file yet, so no link another tab could not load: still a button.
   assert.match(html, /<button type="button" class="session-tree-main" title="[^"]*"><span class="session-tree-title">first tmp<\/span>/);
@@ -309,7 +309,7 @@ test("every saved row's title links to its session, encoded, in every context an
 test("pinned rows name their project and archived rows offer restore with the family's time", () => {
   const pinned = rowMarkup(render({ rows: [sessionRow(session("pin"), { context: "pinned" })] }), "session:pinned:pin");
   assert.match(pinned, /<span class="session-tree-meta"><span class="session-tree-project">app<\/span><\/span>/);
-  assert.match(pinned, /aria-label="Archive"/);
+  assert.match(pinned, /aria-label="归档"/);
 
   // Never the archive time: a session whose last message was two hours ago
   // says 2h however recently it was archived (#1351).
@@ -318,9 +318,9 @@ test("pinned rows name their project and archived rows offer restore with the fa
   }), "session:archive:old");
   assert.match(archived, /class="session-tree-row session-tree-session is-archived"/);
   assert.doesNotMatch(archived, /session-tree-slot/);
-  assert.match(archived, /<span class="session-tree-meta">2h<\/span>/);
-  assert.match(archived, /aria-label="Restore" title="Restore"/);
-  assert.doesNotMatch(archived, /aria-label="Archive"/);
+  assert.match(archived, /<span class="session-tree-meta">2小时<\/span>/);
+  assert.match(archived, /aria-label="恢复" title="恢复"/);
+  assert.doesNotMatch(archived, /aria-label="归档"/);
 });
 
 test("the phone layout uses tall rows, keeps ⋯ and drops the archive quick button", () => {
@@ -329,36 +329,36 @@ test("the phone layout uses tall rows, keeps ⋯ and drops the archive quick but
   assert.match(rowMarkup(html, "group:/work/app"), /style="top:0;height:44px"/);
   const row = rowMarkup(html, "session:group:m");
   assert.match(row, /style="top:44px;height:44px"/);
-  assert.match(row, /aria-label="More actions"/);
-  assert.doesNotMatch(row, /aria-label="Archive"/);
+  assert.match(row, /aria-label="更多操作"/);
+  assert.doesNotMatch(row, /aria-label="归档"/);
 });
 
 test("a summary row without details shows an ellipsis instead of a message count", () => {
   const html = render({ rows: [sessionRow(session("p", { detailsPending: true, name: "Named" }))] });
-  assert.match(html, /title="Named\n… · 5 minutes ago"/);
+  assert.match(html, /title="Named\n… · 5分钟前"/);
 });
 
 test("rename mode swaps the row for a field seeded with the title", () => {
   const html = rowMarkup(render({ rows: [sessionRow(session("r", { name: "Old name" }))], renamingRootId: "r" }), "session:group:r");
   assert.match(html, /class="session-tree-row session-tree-session is-renaming"/);
-  assert.match(html, /<input class="session-tree-rename" aria-label="Rename" value="Old name"\/>/);
+  assert.match(html, /<input class="session-tree-rename" aria-label="重命名" value="Old name"\/>/);
   assert.doesNotMatch(html, /session-tree-actions/);
 });
 
 test("a named project shows its name as plain text in its header, the path as the tooltip", () => {
-  const named = { name: "Thermal <b>Models</b>", customName: "Thermal <b>Models</b>" };
+  const named = { name: "Thermal <b>模型</b>", customName: "Thermal <b>模型</b>" };
   const raw = renderToStaticMarkup(h(I18nProvider, null, h(SessionTree, { ...defaults, rows: [groupRow({}, named)] })));
-  assert.match(raw, /title="\/work\/app"><svg[^>]*class="session-tree-chevron is-open"[\s\S]*?<\/svg><span class="session-tree-group-name">Thermal &lt;b&gt;Models&lt;\/b&gt;<\/span>/);
+  assert.match(raw, /title="\/work\/app"><svg[^>]*class="session-tree-chevron is-open"[\s\S]*?<\/svg><span class="session-tree-group-name">Thermal &lt;b&gt;模型&lt;\/b&gt;<\/span>/);
   assert.doesNotMatch(raw, /<b>/, "never markup");
   const html = render({ rows: [groupRow({}, named)] });
-  assert.match(html, /aria-label="New session in Thermal <b>Models<\/b>"/);
-  assert.match(html, /aria-label="Thermal <b>Models<\/b> actions"/);
+  assert.match(html, /aria-label="在 Thermal <b>模型<\/b> 新建会话"/);
+  assert.match(html, /aria-label="Thermal <b>模型<\/b> 的操作"/);
 });
 
 test("a project's rename swaps its header for a name field seeded with the name shown", () => {
-  const html = rowMarkup(render({ rows: [groupRow({}, { name: "Thermal Models", customName: "Thermal Models" })], renamingProjectKey: "/work/app" }), "group:/work/app");
+  const html = rowMarkup(render({ rows: [groupRow({}, { name: "Thermal 模型", customName: "Thermal 模型" })], renamingProjectKey: "/work/app" }), "group:/work/app");
   assert.match(html, /^<div class="session-tree-row session-tree-group is-current is-renaming" style="top:0;height:28px" data-row-key="group:\/work\/app">/);
-  assert.match(html, /<input class="session-tree-rename" aria-label="Project name" maxLength="80" value="Thermal Models"\/>/);
+  assert.match(html, /<input class="session-tree-rename" aria-label="项目名称" maxLength="80" value="Thermal 模型"\/>/);
   assert.doesNotMatch(html, /session-tree-group-toggle|session-tree-group-actions/);
   // Another group, or none being renamed: the header as usual.
   assert.match(rowMarkup(render({ rows: [groupRow()], renamingProjectKey: "/elsewhere" }), "group:/work/app"), /session-tree-group-toggle/);
@@ -370,10 +370,10 @@ test("delete confirmation shows a shortened title and both answers", () => {
     confirmDeleteRootId: "d",
   }), "session:group:d");
   assert.match(html, /class="session-tree-row session-tree-session is-confirming"/);
-  assert.match(html, /<span class="session-tree-confirm-text">Delete A very long session ti…\?<\/span>/);
-  assert.match(html, /<button type="button" class="session-tree-confirm-delete"><svg[^>]*><path[\s\S]*?<\/svg>Delete<\/button>/);
-  assert.match(html, /<button type="button" class="session-tree-confirm-cancel">Cancel<\/button>/);
-  assert.doesNotMatch(html, /More actions/);
+  assert.match(html, /<span class="session-tree-confirm-text">删除 A very long session ti…？<\/span>/);
+  assert.match(html, /<button type="button" class="session-tree-confirm-delete"><svg[^>]*><path[\s\S]*?<\/svg>删除<\/button>/);
+  assert.match(html, /<button type="button" class="session-tree-confirm-cancel">取消<\/button>/);
+  assert.doesNotMatch(html, /更多操作/);
 });
 
 test("show more, empty groups, footer links and archive groups", () => {
@@ -390,45 +390,45 @@ test("show more, empty groups, footer links and archive groups", () => {
       { kind: "footer-archived", key: "footer-archived", count: 4 },
     ],
   });
-  assert.match(rowMarkup(html, "pinned-more"), /<button type="button" class="session-tree-more-toggle" data-more-action="less">Show less<\/button><\/div>/);
+  assert.match(rowMarkup(html, "pinned-more"), /<button type="button" class="session-tree-more-toggle" data-more-action="less">收起<\/button><\/div>/);
   assert.doesNotMatch(rowMarkup(html, "pinned-more"), /data-more-action="more"/);
-  assert.match(rowMarkup(html, "more:/work/app"), /<button type="button" class="session-tree-more-toggle" data-more-action="more">Show more · 3<\/button><\/div>/);
+  assert.match(rowMarkup(html, "more:/work/app"), /<button type="button" class="session-tree-more-toggle" data-more-action="more">显示更多 · 3<\/button><\/div>/);
   assert.doesNotMatch(rowMarkup(html, "more:/work/app"), /data-more-action="less"/);
   assert.match(
     rowMarkup(html, "more:/work/big"),
-    /data-more-action="more">Show more · 24<\/button><button type="button" class="session-tree-more-toggle" data-more-action="less">Show less<\/button>/,
+    /data-more-action="more">显示更多 · 24<\/button><button type="button" class="session-tree-more-toggle" data-more-action="less">收起<\/button>/,
   );
   // Without sessions only a pin keeps a project listed once another one is current (#1476).
   assert.match(
     rowMarkup(html, "empty:/work/app"),
-    /style="top:78px;height:28px" data-row-key="empty:\/work\/app"><span class="session-tree-group-empty-label">No sessions yet<\/span><button type="button" class="session-tree-more-toggle">Pin to keep<\/button><\/div>/,
+    /style="top:78px;height:28px" data-row-key="empty:\/work\/app"><span class="session-tree-group-empty-label">还没有会话<\/span><button type="button" class="session-tree-more-toggle">置顶以保留<\/button><\/div>/,
   );
   const pinnedEmpty = render({ rows: [{ kind: "group-empty", key: "empty:/work/app", project: { ...project, pinned: true } }] });
-  assert.match(rowMarkup(pinnedEmpty, "empty:/work/app"), /No sessions yet<\/span><\/div>/);
+  assert.match(rowMarkup(pinnedEmpty, "empty:/work/app"), /还没有会话<\/span><\/div>/);
   assert.doesNotMatch(html, /footer-spacer/);
   // The archive's project header is a group header that folds its rows: the
   // chevron, the name, the count; ⋯ for its archived sessions, no "+".
   const archiveHeader = rowMarkup(html, "archive:/work/app");
   assert.match(archiveHeader, /class="session-tree-row session-tree-group session-tree-archive-group is-current"/);
   assert.match(archiveHeader, /<button type="button" class="session-tree-group-toggle" aria-expanded="true" title="\/work\/app"><svg[^>]*class="session-tree-chevron is-open"[\s\S]*?<span class="session-tree-group-name">app<\/span><span class="session-tree-archive-group-count">· 2<\/span><\/button>/);
-  assert.match(archiveHeader, /aria-label="Archived sessions of app"[^>]*aria-haspopup="menu" aria-expanded="false"/);
-  assert.doesNotMatch(archiveHeader, /New session/);
+  assert.match(archiveHeader, /aria-label="app 的已归档会话"[^>]*aria-haspopup="menu" aria-expanded="false"/);
+  assert.doesNotMatch(archiveHeader, /新会话/);
   assert.match(rowMarkup(html, "archive:/work/old"), /aria-expanded="false" title="\/work\/old"><svg[^>]*class="session-tree-chevron"/);
-  assert.match(rowMarkup(html, "footer-open"), /<button type="button" class="session-tree-footer-button"><svg[^>]*>[\s\S]*?<\/svg><span class="session-tree-footer-label">Open another project…<\/span><\/button>/);
-  assert.match(rowMarkup(html, "footer-archived"), /<span class="session-tree-footer-label">Archived · 4<\/span><svg[^>]*class="session-tree-footer-chevron"/);
+  assert.match(rowMarkup(html, "footer-open"), /<button type="button" class="session-tree-footer-button"><svg[^>]*>[\s\S]*?<\/svg><span class="session-tree-footer-label">打开其他项目…<\/span><\/button>/);
+  assert.match(rowMarkup(html, "footer-archived"), /<span class="session-tree-footer-label">已归档 · 4<\/span><svg[^>]*class="session-tree-footer-chevron"/);
 });
 
 test("loading replaces the rows; the empty label shows only without session, group or archive-group rows", () => {
-  const loading = render({ loading: true, rows: [groupRow(), ...footer], emptyLabel: "No sessions found" });
-  assert.match(loading, /<div class="session-tree-message">Loading...<\/div>/);
+  const loading = render({ loading: true, rows: [groupRow(), ...footer], emptyLabel: "未找到会话" });
+  assert.match(loading, /<div class="session-tree-message">加载中\.\.\.<\/div>/);
   assert.deepEqual(renderedKeys(loading), []);
-  assert.doesNotMatch(loading, /No sessions found/);
+  assert.doesNotMatch(loading, /未找到会话/);
 
-  const empty = render({ rows: footer, emptyLabel: "No sessions found" });
-  assert.match(empty, /<div class="session-tree-message">No sessions found<\/div><div class="session-tree-scroll scrollbar-subtle">/);
+  const empty = render({ rows: footer, emptyLabel: "未找到会话" });
+  assert.match(empty, /<div class="session-tree-message">未找到会话<\/div><div class="session-tree-scroll scrollbar-subtle">/);
   assert.deepEqual(renderedKeys(empty), ["footer-open"]);
 
-  assert.doesNotMatch(render({ rows: [groupRow(), ...footer], emptyLabel: "No sessions found" }), /No sessions found/);
+  assert.doesNotMatch(render({ rows: [groupRow(), ...footer], emptyLabel: "未找到会话" }), /未找到会话/);
 
   const foldedArchive = render({
     rows: [
@@ -441,15 +441,15 @@ test("loading replaces the rows; the empty label shows only without session, gro
         expanded: false,
       },
     ],
-    emptyLabel: "No archived sessions",
+    emptyLabel: "没有已归档的会话",
   });
-  assert.doesNotMatch(foldedArchive, /No archived sessions/);
+  assert.doesNotMatch(foldedArchive, /没有已归档的会话/);
   assert.deepEqual(renderedKeys(foldedArchive), ["archive:/work/app", "archive:/work/old"]);
   assert.doesNotMatch(render({ rows: footer, emptyLabel: null }), /session-tree-message/);
 
-  const failed = render({ rows: footer, emptyLabel: "No sessions found", error: "HTTP 500" });
+  const failed = render({ rows: footer, emptyLabel: "未找到会话", error: "HTTP 500" });
   assert.match(failed, /<div class="session-tree-message is-error">HTTP 500<\/div>/);
-  assert.doesNotMatch(failed, /No sessions found/);
+  assert.doesNotMatch(failed, /未找到会话/);
 });
 
 test("only rows near the viewport are mounted, plus the ones that must stay", () => {
@@ -503,7 +503,7 @@ test("renders the model built from a catalog with unique row keys", () => {
   assert.deepEqual(keys, ["pinned-header", "session:pinned:b", "group:/work/app", "session:group:a", "footer-open"]);
   const familyRow = rowMarkup(html, "session:group:a");
   assert.match(familyRow, /is-selected/);
-  assert.match(familyRow, /aria-label="Agent running…"/);
+  assert.match(familyRow, /aria-label="Agent 运行中…"/);
   assert.match(rowMarkup(html, "session:pinned:b"), /<span class="session-tree-project">other<\/span>/);
 });
 

@@ -15,7 +15,7 @@ Local browser UI for the [pi coding agent](https://github.com/earendil-works/pi)
 - **Project file tools**: browse and upload files, inspect Git diffs, and preview source, Markdown, images, audio, PDFs, and DOCX files with automatic refresh.
 - **Git worktrees**: switch checkouts from the sidebar while keeping sessions from the same repository grouped together.
 - **Web-based configuration**: manage provider login and API keys, models, model tests, plugin packages, and skills without leaving Pi Web.
-- **English, Simplified Chinese, and Traditional Chinese UI**: Pi Web follows the browser language initially. Change it under Settings → General → Language.
+- **Simplified Chinese UI**: every interface string lives in `lib/i18n/messages/zh-CN.ts`.
 
 ## Quick Start
 
@@ -127,7 +127,7 @@ npx @agegr/pi-web@latest
 A thin Electron shell shows the same UI in a window, sends finished tasks to the OS notification center, flashes the taskbar, and keeps all its data beside the executable instead of on C:.
 
 ```bash
-npm run desktop       # window over a local server (uses a build, else next dev)
+npm run desktop       # window over the built UI (rebuilds when the source changed)
 npm run desktop:pack  # next build + electron-builder --dir  → desktop-dist/win-unpacked
 npm run desktop:dist  # next build + electron-builder         → NSIS installer
 ```

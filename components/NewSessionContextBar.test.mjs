@@ -44,15 +44,15 @@ function render(props = {}) {
 test("the bar shows the project's name and the worktree's branch as two menu buttons", () => {
   const html = render();
   // No visible label: the folder icon says what the row is; the group keeps its name.
-  assert.match(html, /^<div class="new-session-context"><div class="project-picker is-inline" role="group" aria-label="New session location"><button /);
-  assert.equal((html.match(/New session location/g) ?? []).length, 1);
+  assert.match(html, /^<div class="new-session-context"><div class="project-picker is-inline" role="group" aria-label="新会话的位置"><button /);
+  assert.equal((html.match(/新会话的位置/g) ?? []).length, 1);
   // The project: a 12px folder icon, its name in code type, a chevron; the
   // full path is the tooltip (and the menu's rows), never the button's text.
   assert.match(html, /<button type="button" class="project-picker-button is-project" title="\/work\/app" aria-haspopup="menu" aria-expanded="false"><svg width="12" height="12"[^>]*class="project-picker-icon" aria-hidden="true"><path d="M3 8a2[^"]*"><\/path><\/svg><span class="project-picker-name"><span class="project-picker-leaf">app<\/span><\/span><svg width="9" height="9"[^>]*class="project-picker-chevron sidebar-icon-down" aria-hidden="true">/);
   assert.doesNotMatch(html, /project-picker-path"><span>\/work\/app</);
   // The worktree: the branch icon (the accent for a linked checkout), the
   // branch cut at its left, a chevron; no "main" note and no count.
-  assert.match(html, /<button type="button" class="project-picker-button" title="Worktree: \/work\/app-worktrees\/feature" aria-haspopup="menu" aria-expanded="false"><svg width="11" height="11"[^>]*class="project-picker-icon is-linked"[\s\S]*?<\/svg><span class="project-picker-path"><span>feature\/x<\/span><\/span><svg width="9" height="9"[^>]*class="project-picker-chevron sidebar-icon-down"[\s\S]*?<\/svg><\/button><\/div><\/div>$/);
+  assert.match(html, /<button type="button" class="project-picker-button" title="Worktree：\/work\/app-worktrees\/feature" aria-haspopup="menu" aria-expanded="false"><svg width="11" height="11"[^>]*class="project-picker-icon is-linked"[\s\S]*?<\/svg><span class="project-picker-path"><span>feature\/x<\/span><\/span><svg width="9" height="9"[^>]*class="project-picker-chevron sidebar-icon-down"[\s\S]*?<\/svg><\/button><\/div><\/div>$/);
   const main = render({ context: { ...context, currentWorktreePath: "/work/app" } });
   assert.match(main, /class="project-picker-icon" aria-hidden="true">[\s\S]*?<span class="project-picker-path"><span>main<\/span><\/span><svg width="9"/);
   assert.doesNotMatch(main, /project-picker-note|is-linked/);
@@ -66,9 +66,9 @@ test("the project's name is the menus': its display name, else its folder's, its
   // The parent and "/" outside the name's own span: the parent is cut first.
   assert.match(render({ context: twins }), /<span class="project-picker-name"><span class="project-picker-parent">work<\/span>\/<span class="project-picker-leaf">app<\/span><\/span>/);
   // A project the user named: that name alone, the path still the tooltip.
-  const named = { ...twins, project: { ...context.project, alias: "Thermal <b>Models</b>" } };
+  const named = { ...twins, project: { ...context.project, alias: "Thermal <b>模型</b>" } };
   const html = render({ context: named });
-  assert.match(html, /title="\/work\/app"[^>]*><svg[^>]*>[\s\S]*?<\/svg><span class="project-picker-name"><span class="project-picker-leaf">Thermal &lt;b&gt;Models&lt;\/b&gt;<\/span><\/span>/);
+  assert.match(html, /title="\/work\/app"[^>]*><svg[^>]*>[\s\S]*?<\/svg><span class="project-picker-name"><span class="project-picker-leaf">Thermal &lt;b&gt;模型&lt;\/b&gt;<\/span><\/span>/);
   assert.doesNotMatch(html, /project-picker-parent|is-alias/);
   // A name only the list knows (a move names its project by key and root).
   const listed = { ...context, projects: [{ key: "app-key", root: "/work/app", alias: "Listed" }] };
@@ -83,7 +83,7 @@ test("the worktree button needs a worktree list: a non-git folder or a subdirect
   // A detached checkout shows its path, cut at its left as a branch is.
   assert.match(
     render({ context: { ...context, worktrees: [{ path: "/work/app", branch: null, isMain: true }], currentWorktreePath: "/work/app" } }),
-    /title="Worktree: \/work\/app"[^>]*>[\s\S]*?picker-path"><span>\/work\/app<\/span>/,
+    /title="Worktree：\/work\/app"[^>]*>[\s\S]*?picker-path"><span>\/work\/app<\/span>/,
   );
 });
 

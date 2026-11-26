@@ -13,7 +13,6 @@ const { I18nProvider } = await jiti.import("@/hooks/useI18n");
 const { DebugPanelView } = await jiti.import("./DebugPanel.tsx");
 const { EMPTY_DEBUG_SERVER_READING } = await jiti.import("./debug-panel-state.ts");
 const { focusIfLost } = await jiti.import("@/lib/stacked-dialog.ts");
-const { enLocale } = await jiti.import("@/lib/i18n/messages/en.ts");
 const { zhCNLocale } = await jiti.import("@/lib/i18n/messages/zh-CN.ts");
 const { interpolateMessage } = await jiti.import("@/lib/i18n/format.ts");
 const panelSource = await readFile(new URL("./DebugPanel.tsx", import.meta.url), "utf8");
@@ -24,8 +23,8 @@ const h = React.createElement;
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
 const t = (key, params) => {
-  assert.equal(typeof enLocale.messages[key], "string", `missing translation ${key}`);
-  return interpolateMessage(enLocale.messages[key], params);
+  assert.equal(typeof zhCNLocale.messages[key], "string", `missing translation ${key}`);
+  return interpolateMessage(zhCNLocale.messages[key], params);
 };
 
 function decode(html) {
@@ -110,7 +109,7 @@ function sessionLines(html) {
   }
   return lines.map((line) => (typeof line === "string"
     ? line
-    : `${line.classes.includes("is-sub") ? "sub " : ""}${line.name}${line.classes.includes("is-current") ? " · this chat" : ""}`));
+    : `${line.classes.includes("is-sub") ? "sub " : ""}${line.name}${line.classes.includes("is-current") ? " · 当前聊天" : ""}`));
 }
 
 // The browser's clock is far from the server's: only the time since the answer counts.
@@ -247,7 +246,7 @@ function withDetail(extra) {
 }
 
 const catalog = [
-  { id: "s1", name: "Current chat", path: "", cwd: "/work/app", projectRoot: "/work/app", created: "", modified: "2026-10-01T00:00:00Z", messageCount: 2, firstMessage: "" },
+  { id: "s1", name: "当前 chat", path: "", cwd: "/work/app", projectRoot: "/work/app", created: "", modified: "2026-10-01T00:00:00Z", messageCount: 2, firstMessage: "" },
   { id: "sub-xyz-789", name: "", path: "", cwd: "/work/app", projectRoot: "/work/app", created: "", modified: "2026-10-02T00:00:00Z", messageCount: 1, firstMessage: "explore the repo", relation: { kind: "subagent", parentSessionId: "s1", profile: "explore", description: "", status: "running" } },
   { id: "notes-1", name: "Weekly plan", path: "", cwd: "/work/notes", projectRoot: "/work/notes", created: "", modified: "2026-10-09T00:00:00Z", messageCount: 3, firstMessage: "" },
 ];
@@ -267,19 +266,19 @@ function render(props = {}) {
 
 test("a quiet page reads OK: no issue list, the meter's scale in its label, every section", () => {
   const html = render();
-  assert.match(html, /<span class="debug-panel-status is-muted"><span class="debug-dot is-ok" aria-hidden="true"><\/span><span class="debug-panel-status-text">OK<\/span><\/span>/);
+  assert.match(html, /<span class="debug-panel-status is-muted"><span class="debug-dot is-ok" aria-hidden="true"><\/span><span class="debug-panel-status-text">正常<\/span><\/span>/);
   assert.doesNotMatch(html, /<ul/, "no issues, no list");
   // The meter's name says what its slots count: the slots' own titles are not read inside an image.
-  assert.ok(ariaLabels(html).includes("http/1.1 · six connections per origin, shared by all tabs · 2/6 · Agent 1 · File watch 1"), ariaLabels(html).join("\n"));
+  assert.ok(ariaLabels(html).includes("http/1.1 · 每个源六个连接，所有标签页共用 · 2/6 · Agent 1 · 文件监视 1"), ariaLabels(html).join("\n"));
   for (const key of ["page", "stream", "lease", "server"]) {
     assert.ok(html.includes(`>${t(`debug.section.${key}`)}<`), key);
   }
   // Constants are scales and tooltips, never rows: the sentence is not on screen.
   const text = visibleText(html);
-  assert.doesNotMatch(text, /six connections|every 15s|timeout 10m|stale after/);
+  assert.doesNotMatch(text, /每个源六个连接|每 15秒|超时 10分/);
   assert.doesNotMatch(html, /<dl|<dt|debug-panel-footer/);
-  assert.match(html, /<span class="debug-panel-heading" title="Read-only: [^"]+">Debug<\/span>/);
-  assert.match(html, /<button type="button" class="debug-panel-copy"[^>]*>Copy JSON<\/button>/);
+  assert.match(html, /<span class="debug-panel-heading" title="只读：[^"]+">调试<\/span>/);
+  assert.match(html, /<button type="button" class="debug-panel-copy"[^>]*>复制 JSON<\/button>/);
   // No live region: a screen reader would read every change out.
   assert.doesNotMatch(html, /role="status"|aria-live/);
 });
@@ -287,19 +286,19 @@ test("a quiet page reads OK: no issue list, the meter's scale in its label, ever
 test("the meter names what it holds on h2 and with no protocol known, not a bare code and number", () => {
   const terminal = { id: 3, kind: "terminal", label: "/work/app", state: "open", createdAt: LOCAL - 30 * SECOND, opens: 1, errors: 0, lastOpenAt: null, lastErrorAt: null };
   const h2 = render({ page: page({ protocol: "h2", sources: [...page().sources, terminal] }) });
-  assert.ok(ariaLabels(h2).includes("This page · Agent 1 · File watch 1 · Terminal 1 · h2"), ariaLabels(h2).join("\n"));
+  assert.ok(ariaLabels(h2).includes("本页面 · Agent 1 · 文件监视 1 · 终端 1 · h2"), ariaLabels(h2).join("\n"));
   assert.match(h2, /<span class="debug-chip is-dim">h2<\/span>/);
   const unknown = render({ page: page({ protocol: null }) });
-  assert.ok(ariaLabels(unknown).includes("This page · Agent 1 · File watch 1 · unknown"));
+  assert.ok(ariaLabels(unknown).includes("本页面 · Agent 1 · 文件监视 1 · 未知"));
   assert.doesNotMatch(unknown, /<span class="debug-chip is-dim">/);
 });
 
 test("a timeout: the verdict counts it and its sentence is written once", () => {
   const html = render({ server: server({ failure: { kind: "timeout", status: null, at: LOCAL - SECOND } }) });
-  assert.match(html, /<span class="debug-panel-status is-warning"><svg[^>]*>.*?<\/svg><span class="debug-panel-status-text">Issues: 1<\/span>/);
+  assert.match(html, /<span class="debug-panel-status is-warning"><svg[^>]*>.*?<\/svg><span class="debug-panel-status-text">问题：1<\/span>/);
   // The tone's mark and the sentence: no mark for what it is about, the sentence names it.
   assert.match(html, /<ul class="debug-issues"><li class="debug-issue is-warning"><svg[^>]*>(?:<path [^>]*><\/path>)+<\/svg><span class="debug-issue-text">/);
-  const sentence = `${t("debug.poll.timeout")} · 1s ago`;
+  const sentence = `${t("debug.poll.timeout")} · 1秒前`;
   assert.ok(html.includes(`<span class="debug-issue-text">${sentence}</span>`));
   assert.equal(html.split(t("debug.poll.timeout")).length - 1, 1, "once, in the issues");
 });
@@ -310,13 +309,13 @@ test("server countdowns run on the server's clock plus the time since its answer
   // 8m 30s left when the server answered, 10 s ago: 8m 20s, whatever the browser's clock says. The
   // chat's row shows minutes like every row; its tooltip has the seconds and what moves them.
   const all = titles(html);
-  assert.ok(all.includes(`Reap countdown 8m 20s · timeout 10m 00s · reset 1m 40s ago · ${t("debug.server.idleHint")}`), all.join("\n"));
-  assert.ok(all.includes("started 2× · last 6m 10s ago · closed 7m 10s ago"), "the chat's ↻ says when");
-  assert.ok(text.includes("Uptime 2h 00m"));
+  assert.ok(all.includes(`回收倒计时 8分20秒 · 超时 10分00秒 · 1分40秒前重置 · ${t("debug.server.idleHint")}`), all.join("\n"));
+  assert.ok(all.includes("启动 2 次 · 上次 6分10秒前 · 7分10秒前关闭"), "the chat's ↻ says when");
+  assert.ok(text.includes("运行时长 2小时00分"));
   assert.ok(text.includes("↻2"));
   // The browser's own times run on its own clock: next renewal 10 s after the 30 s mark.
-  assert.ok(all.includes("Next renewal in 10s · every 15s · 2 sent · 0 unanswered · 0 failed · this page page-min"));
-  assert.ok(text.includes("Lease renews in 10s Last renewal answered · 18 ms · 5s ago"), text);
+  assert.ok(all.includes("下次续期 10秒后 · 每 15秒 · 已发送 2 · 无应答 0 · 失败 0 · 本页面 page-min"));
+  assert.ok(text.includes("10秒后续期 上次续期 已应答 · 18 ms · 5秒前"), text);
   // Both bars fill as time passes: the stream's toward its watchdog, the lease's toward its renewal
   // (5 s of 15 gone).
   assert.match(measure(html, "lease"), /<span class="debug-bar-fill" style="width:33\.33[0-9]*%">/);
@@ -328,29 +327,29 @@ test("server countdowns run on the server's clock plus the time since its answer
       lease: { ...client().lease, renewStartedAt: LOCAL - 29_700, last: { ...client().lease.last, at: LOCAL - 300 } },
     }) }),
   });
-  assert.match(measure(fresh, "stream"), /<span class="debug-value is-[a-z]+" title="[^"]*">data 0s ago<\/span>/);
-  assert.match(measure(fresh, "lease"), /<span class="debug-value is-muted" title="[^"]*">renews in 1s<\/span>/);
-  assert.ok(visibleText(measure(fresh, "lease")).includes("Last renewal answered · 18 ms · 0s ago"));
+  assert.match(measure(fresh, "stream"), /<span class="debug-value is-[a-z]+" title="[^"]*">0秒前有数据<\/span>/);
+  assert.match(measure(fresh, "lease"), /<span class="debug-value is-muted" title="[^"]*">1秒后续期<\/span>/);
+  assert.ok(visibleText(measure(fresh, "lease")).includes("上次续期 已应答 · 18 ms · 0秒前"));
 });
 
-test("one boxed word per stream and provider: this page's first and filled, other pages' outlined", () => {
+test("one boxed word per stream and provider: 本页面's first and filled, other pages' outlined", () => {
   const html = render();
   // The chat's badges sit in its row of the list, where every other session's are.
   const list = sessionList(html);
   const card = list.slice(list.indexOf("debug-row is-current"), list.indexOf("debug-detail"));
   assert.doesNotMatch(detailOf(html), /debug-badge/, "none in the details under it");
   const labels = ariaLabels(card);
-  assert.ok(labels.includes("SSE: 2 (this page 1, other page 1)"), labels.join("\n"));
+  assert.ok(labels.includes("SSE: 2 (本页面 1, 其他页面 1)"), labels.join("\n"));
   assert.ok(!labels.some((label) => label.startsWith("Lease")), "the server keeps no leases to show");
-  assert.ok(labels.includes("Liveness providers: 1"));
+  assert.ok(labels.includes("存活提供者: 1"));
   // The badges say what they are: no "SSE" label before them, no icon in them; their titles say
   // which page, its browser and system, and its address.
   assert.doesNotMatch(card, /debug-client/);
-  assert.match(card, /<span class="debug-row-badges"><span class="debug-run" title="SSE: 2 [^"]*" role="img" aria-label="SSE: 2 [^"]*"><span class="debug-badge is-accent is-filled" title="this page page-min · Chrome · macOS · 127.0.0.1 · connected 5m 10s ago · last write 13s ago">SSE<\/span><span class="debug-badge is-muted" title="other page page-oth · Safari · iOS · 192.168.1.20 · connected 6m 10s ago · last write 13s ago">SSE<\/span><\/span><span class="debug-run"/);
+  assert.match(card, /<span class="debug-row-badges"><span class="debug-run" title="SSE: 2 [^"]*" role="img" aria-label="SSE: 2 [^"]*"><span class="debug-badge is-accent is-filled" title="本页面 page-min · Chrome · macOS · 127.0.0.1 · 5分10秒前连接 · 上次写入 13秒前">SSE<\/span><span class="debug-badge is-muted" title="其他页面 page-oth · Safari · iOS · 192.168.1.20 · 6分10秒前连接 · 上次写入 13秒前">SSE<\/span><\/span><span class="debug-run"/);
   assert.doesNotMatch(card, /debug-mini-label/);
   assert.doesNotMatch(card, />Lease</);
   // A provider's badge is its name.
-  assert.match(card, /<span class="debug-badge is-name is-muted" title="keepalive-ext · active · by file">keepalive-ext<\/span>/);
+  assert.match(card, /<span class="debug-badge is-name is-muted" title="keepalive-ext · 活动 · 按文件">keepalive-ext<\/span>/);
 
   // The pages holding the server's streams, one row each, this page first on the current tint:
   // marks, browser and system, address, page, count; the server's total in the head.
@@ -359,27 +358,27 @@ test("one boxed word per stream and provider: this page's first and filled, othe
   const rows = [...pages.replace(icons, "<icons>").matchAll(/<div class="(debug-page-row[^"]*)"[^>]*>(.*?)<\/div>/g)]
     .map((match) => `${match[1]}: ${visibleText(match[2])}`);
   assert.deepEqual(rows, [
-    "debug-page-row debug-list-head: Connected pages 2 SSE 5 total",
-    "debug-page-row is-current: Chrome · macOS 127.0.0.1 this page 2",
+    "debug-page-row debug-list-head: 连接的页面 2 SSE 共 5 个",
+    "debug-page-row is-current: Chrome · macOS 127.0.0.1 本页面 2",
     "debug-page-row: Safari · iOS 192.168.1.20 page-oth 3",
   ]);
   // Every SSE kind counts, each a connection of the browser's pool; the title says which.
   assert.equal(pages.match(icons)?.length, 2, "two marks each, hidden from screen readers");
-  assert.ok(titles(pages).includes("other page page-oth · Safari · iOS · 192.168.1.20 · SSE 3 · Agent 2 · Terminal 1"), titles(pages).join("\n"));
-  assert.ok(titles(pages).includes("this page page-min · Chrome · macOS · 127.0.0.1 · SSE 2 · Agent 1 · File watch 1"));
+  assert.ok(titles(pages).includes("其他页面 page-oth · Safari · iOS · 192.168.1.20 · SSE 3 · Agent 2 · 终端 1"), titles(pages).join("\n"));
+  assert.ok(titles(pages).includes("本页面 page-min · Chrome · macOS · 127.0.0.1 · SSE 2 · Agent 1 · 文件监视 1"));
   // A page opened without a page id or a known browser still gets its row.
   const bare = reply();
   bare.server.sseTotal = 1;
   bare.server.pages = [{ holder: null, address: null, client: null, agent: 1, terminal: 0, fileWatch: 0 }];
   const bareRow = pageList(render({ server: server({ reply: bare }) }));
-  assert.match(bareRow, /<span class="debug-page-icons"><\/span><span class="debug-page-client is-dim">unknown browser<\/span><span class="debug-page-address">—<\/span><span class="debug-page-holder">no page id<\/span>/);
+  assert.match(bareRow, /<span class="debug-page-icons"><\/span><span class="debug-page-client is-dim">未知浏览器<\/span><span class="debug-page-address">—<\/span><span class="debug-page-holder">无页面 ID<\/span>/);
   const strip = serverHead(html);
   assert.doesNotMatch(strip, />SSE</, "the head no longer lists streams");
   assert.doesNotMatch(html, /debug-divider/);
   assert.doesNotMatch(visibleText(section(html, "page", "server")), /\d\/6/);
-  assert.match(strip, /aria-label="File watches: 1"><span class="debug-badge is-muted" title="File watches: 1">File<\/span><\/span>/);
-  assert.match(strip, /aria-label="Terminals: 1 [^"]*"><span class="debug-badge is-muted" title="Terminals: 1 [^"]*">Term<\/span><\/span>/);
-  assert.ok(titles(strip).some((title) => title.startsWith("Timers: idle 10m 00s · heartbeat 15s\n3 alive · 1 closing · 0 starting")));
+  assert.match(strip, /aria-label="文件监视: 1"><span class="debug-badge is-muted" title="文件监视: 1">文件<\/span><\/span>/);
+  assert.match(strip, /aria-label="终端: 1 [^"]*"><span class="debug-badge is-muted" title="终端: 1 [^"]*">终端<\/span><\/span>/);
+  assert.ok(titles(strip).some((title) => title.startsWith("计时器: 空闲 10分00秒 · 心跳 15秒\n存活 3 · 关闭中 1 · 启动中 0")));
 });
 
 test("a starting stream is dashed amber, one dropping events amber; past the cap the rest is a count", () => {
@@ -390,18 +389,18 @@ test("a starting stream is dashed amber, one dropping events amber; past the cap
     ...[5, 4, 3, 2, 1, 0].map((index) => stream(`page-x-${index}`, SERVER - index * SECOND)),
   ];
   const list = sessionList(render({ server: withDetail({ eventStreams }) }));
-  const from = list.indexOf('<span class="debug-run" title="SSE: 8 (this page 1, other page 7)"');
+  const from = list.indexOf("<span class=\"debug-run\" title=\"SSE: 8 (本页面 1, 其他页面 7)\"");
   assert.notEqual(from, -1);
   const run = list.slice(from, list.indexOf('<span class="debug-run"', from + 1));
   assert.equal(run.match(/>SSE<\/span>/g).length, 3, "three badges, a row's cap");
   assert.match(run, /<span class="debug-run-more">\+5<\/span><\/span>$/);
   // This page's own still starting: filled, amber and dashed; another page's that dropped events: amber, solid.
-  assert.match(run, /^[^>]*><span class="debug-badge is-warning is-filled is-dashed" title="this page page-min · starting the session">SSE<\/span>/);
-  assert.match(run, /<span class="debug-badge is-warning" title="other page page-oth · connected 6m 10s ago · 2 dropped">SSE<\/span>/);
-  assert.equal(run.match(/is-filled/g).length, 1, "only this page's is filled");
+  assert.match(run, /^[^>]*><span class="debug-badge is-warning is-filled is-dashed" title="本页面 page-min · 正在启动会话">SSE<\/span>/);
+  assert.match(run, /<span class="debug-badge is-warning" title="其他页面 page-oth · 6分10秒前连接 · 丢弃 2">SSE<\/span>/);
+  assert.equal(run.match(/is-filled/g).length, 1, "only 本页面's is filled");
 });
 
-test("a session row: up to three SSE and one Provider badge, then counts; this page's streams filled", () => {
+test("a session row: up to three SSE and one 提供者 badge, then counts; 本页面's streams filled", () => {
   const answer = reply();
   answer.sessions = answer.sessions.map((entry) => (entry.sessionId === "notes-1" ? { ...entry, eventStreams: 5, providers: 2 } : entry));
   const grace = { id: 3, kind: "agent", label: "notes-1", state: "open", createdAt: LOCAL - MINUTE, opens: 1, errors: 0, lastOpenAt: null, lastErrorAt: null };
@@ -411,13 +410,13 @@ test("a session row: up to three SSE and one Provider badge, then counts; this p
   const badges = row.slice(row.indexOf('<span class="debug-row-badges">'), row.indexOf('<span class="debug-row-idle'));
   assert.equal(badges, [
     '<span class="debug-row-badges">',
-    '<span class="debug-run" title="5 event streams" role="img" aria-label="5 event streams">',
-    '<span class="debug-badge is-accent is-filled" title="5 event streams">SSE</span>',
-    '<span class="debug-badge is-muted" title="5 event streams">SSE</span>',
-    '<span class="debug-badge is-muted" title="5 event streams">SSE</span>',
+    '<span class="debug-run" title="5 个 SSE" role="img" aria-label="5 个 SSE">',
+    '<span class="debug-badge is-accent is-filled" title="5 个 SSE">SSE</span>',
+    '<span class="debug-badge is-muted" title="5 个 SSE">SSE</span>',
+    '<span class="debug-badge is-muted" title="5 个 SSE">SSE</span>',
     '<span class="debug-run-more">+2</span></span>',
-    '<span class="debug-run" title="2 liveness providers" role="img" aria-label="2 liveness providers">',
-    '<span class="debug-badge is-muted" title="2 liveness providers">Provider</span>',
+    '<span class="debug-run" title="2 个存活提供者" role="img" aria-label="2 个存活提供者">',
+    "<span class=\"debug-badge is-muted\" title=\"2 个存活提供者\">提供者</span>",
     '<span class="debug-run-more">+1</span></span>',
     "</span>",
   ].join(""));
@@ -431,7 +430,7 @@ test("a session row: up to three SSE and one Provider badge, then counts; this p
   assert.match(narrow, /\.debug-row-badges \{\s*grid-column: 2 \/ -1;\s*grid-row: 2;\s*flex-wrap: wrap;/);
 });
 
-test("the meter's slots say what holds them: SSE, File, Term; a connecting one dashed amber, empty ones dotted", () => {
+test("the meter's slots say what holds them: SSE, 文件, 终端; a connecting one dashed amber, empty ones dotted", () => {
   const extra = (id, kind, label, createdAt, state = "open") => ({ id, kind, label, state, createdAt, opens: 1, errors: 0, lastOpenAt: null, lastErrorAt: null });
   const [chat, watch] = page().sources;
   const sources = [chat, extra(3, "agent", "notes-1", LOCAL - 4 * MINUTE), watch, extra(4, "terminal", "/work/app", LOCAL - 30 * SECOND, "connecting")];
@@ -443,12 +442,12 @@ test("the meter's slots say what holds them: SSE, File, Term; a connecting one d
   assert.deepEqual(slots, [
     "debug-badge debug-slot is-accent is-filled: SSE",
     "debug-badge debug-slot is-muted: SSE",
-    "debug-badge debug-slot is-muted: File",
-    "debug-badge debug-slot is-warning is-dashed: Term",
+    "debug-badge debug-slot is-muted: 文件",
+    "debug-badge debug-slot is-warning is-dashed: 终端",
     "debug-slot is-empty: ",
     "debug-slot is-empty: ",
   ]);
-  assert.match(meter, /title="Terminal · app · connecting · opened 1× · 0 errors · 30s ago">Term</);
+  assert.match(meter, /title="终端 · app · 连接中 · 打开 1 次 · 0 次错误 · 30秒前">终端</);
   assert.match(panelSource, /\.debug-slot\.is-empty \{\s*border: 1px dotted var\(--border\);/);
   // The words follow the language; "SSE" stays as it is.
   const zh = (key, params) => interpolateMessage(zhCNLocale.messages[key], params);
@@ -461,31 +460,31 @@ test("the meter's slots say what holds them: SSE, File, Term; a connecting one d
 test("sessions on the server: grouped by project, the chat's first and not repeated, subagents under their root", () => {
   assert.deepEqual(sessionLines(render()), [
     "# app",
-    "Current chat · this chat",
+    "当前 chat · 当前聊天",
     "sub explore the repo",
     "# notes",
     "Weekly plan",
-    "# Not in the session list",
+    "# 不在会话列表中",
     "other-se",
   ]);
   const list = sessionList(render());
-  assert.match(list, /class="debug-row is-current has-detail" title="this chat · s1 · alive · 2 event streams · 1 liveness providers · reap countdown 8m · started 2×">/);
+  assert.match(list, /class="debug-row is-current has-detail" title="当前聊天 · s1 · 存活 · 2 个 SSE · 1 个存活提供者 · 回收倒计时 8分 · 启动 2 次">/);
   // The chat's row: the sidebar's short bar beside its status, its badges with their holders, its
   // details below it on the same tint.
   const current = list.slice(list.indexOf("debug-row is-current"), list.indexOf("debug-row is-sub"));
-  assert.match(current, /<span class="debug-row-status"><span class="debug-status" role="img" aria-label="alive"/);
-  assert.match(current, /aria-label="SSE: 2 \(this page 1, other page 1\)"/);
+  assert.match(current, /<span class="debug-row-status"><span class="debug-status" role="img" aria-label="存活"/);
+  assert.match(current, /aria-label="SSE: 2 \(本页面 1, 其他页面 1\)"/);
   assert.match(current, /<\/div><div class="debug-detail"><div class="debug-detail-line"><span class="debug-detail-id">s1<\/span>/);
   assert.match(panelSource, /\.debug-row\.has-detail \{\s*border-radius: 4px 4px 0 0;/);
   assert.match(panelSource, /\.debug-row\.is-current::before \{\s*content: "";\s*position: absolute;\s*top: 5px;\s*left: 0;\s*width: 3px;\s*height: 14px;/);
-  assert.match(list, /<span class="session-tree-awaiting" role="img" aria-label="awaiting input" title="awaiting input"><\/span>/, "the sidebar's awaiting dot");
-  assert.match(list, /<span class="debug-status is-accent" title="running"><svg[^>]*class="sidebar-spin"/, "the sidebar's spinner");
+  assert.match(list, /<span class="session-tree-awaiting" role="img" aria-label="等待输入" title="等待输入"><\/span>/, "the sidebar's awaiting dot");
+  assert.match(list, /<span class="debug-status is-accent" title="运行中"><svg[^>]*class="sidebar-spin"/, "the sidebar's spinner");
   assert.match(list, /<span class="debug-status-ring is-closing"><\/span>/);
-  assert.match(list, /title="1 event streams" role="img" aria-label="1 event streams"><span class="debug-badge is-muted" title="1 event streams">SSE<\/span><\/span>/);
+  assert.match(list, /title="1 个 SSE" role="img" aria-label="1 个 SSE"><span class="debug-badge is-muted" title="1 个 SSE">SSE<\/span><\/span>/);
   // 3 min left when the server answered, 10 s ago.
-  assert.match(list, /<span class="debug-row-idle-text">2m 50s<\/span>/, "to the second");
+  assert.match(list, /<span class="debug-row-idle-text">2分50秒<\/span>/, "to the second");
   // A head says what the columns are, above the first group.
-  assert.match(list, /^<div class="debug-list"><div class="debug-row debug-list-head" aria-hidden="true"><span><\/span><span>Session<\/span><span class="debug-list-head-holders">Held by<\/span><span class="debug-list-head-idle">Reap countdown<\/span><\/div><div class="debug-group">/);
+  assert.match(list, /^<div class="debug-list"><div class="debug-row debug-list-head" aria-hidden="true"><span><\/span><span>会话<\/span><span class="debug-list-head-holders">持有者<\/span><span class="debug-list-head-idle">回收倒计时<\/span><\/div><div class="debug-group">/);
 });
 
 test("a chat that moved on waits for its own answer; a hidden page pauses", () => {
@@ -496,7 +495,7 @@ test("a chat that moved on waits for its own answer; a hidden page pauses", () =
   assert.doesNotMatch(list, /debug-detail/);
 
   const hidden = render({ page: page({ visibility: { ...page().visibility, state: "hidden" } }) });
-  assert.match(hidden, /<span class="debug-panel-status is-dim"><span class="debug-dot is-dim is-ring" aria-hidden="true"><\/span><span class="debug-panel-status-text">Paused while the page is hidden<\/span>/);
+  assert.match(hidden, /<span class="debug-panel-status is-dim"><span class="debug-dot is-dim is-ring" aria-hidden="true"><\/span><span class="debug-panel-status-text">页面隐藏时暂停<\/span>/);
 
   // Nor does a hidden page read or render each second; it reads again as it comes back.
   const tick = panelSource.slice(panelSource.indexOf("const tick = window.setInterval("), panelSource.indexOf("}, DEBUG_TICK_MS);"));
@@ -527,20 +526,20 @@ test("server states, run statuses and close reasons read as words, not codes", (
     }),
   });
   const stateTitle = titles(html).find((title) => title.startsWith("readyState 1"));
-  assert.ok(stateTitle?.split("\n").includes("Last close tools changed · 4s ago"), stateTitle);
-  assert.ok(stateTitle.split("\n").includes("Page wants it yes"));
-  assert.ok(stateTitle.split("\n").includes("hidden 1× · last hidden 2m 00s ago"));
+  assert.ok(stateTitle?.split("\n").includes("上次关闭 工具已更改 · 4秒前"), stateTitle);
+  assert.ok(stateTitle.split("\n").includes("页面需要 是"));
+  assert.ok(stateTitle.split("\n").includes("隐藏过 1 次 · 上次隐藏于2分00秒前"));
   const text = visibleText(html);
-  assert.ok(text.includes("general Queued · background · 12s ago"), text);
+  assert.ok(text.includes("general 排队中 · 后台 · 12秒前"), text);
   // A value newer than the panel's maps reads as it came.
-  assert.ok(text.includes("sub-newe paused abort requested"));
-  assert.ok(text.includes("notifying s1 · 11s ago"));
-  assert.ok(text.includes("a run is unsettled"));
-  assert.ok(titles(html).includes("github (global) · Needs sign-in"));
+  assert.ok(text.includes("sub-newe paused 已请求中止"));
+  assert.ok(text.includes("正在通知 s1 · 11秒前"));
+  assert.ok(text.includes("有未结束的运行"));
+  assert.ok(titles(html).includes("github (global) · 需要登录"));
   assert.ok(titles(html).includes("later (project) · warming"));
 
   const noReason = render({ page: page({ client: client({ connection: { ...client().connection, lastClose: { reason: null, at: LOCAL - SECOND } } }) }) });
-  assert.ok(titles(noReason).some((title) => title.split("\n").includes("Last close — · 1s ago")));
+  assert.ok(titles(noReason).some((title) => title.split("\n").includes("上次关闭 — · 1秒前")));
 });
 
 test("an MCP server's state is never the dot's hue alone: words after the name, and the pill's name", () => {
@@ -556,15 +555,15 @@ test("an MCP server's state is never the dot's hue alone: words after the name, 
   });
   const card = detailOf(html);
   const pill = (name) => card.match(new RegExp(`<span class="debug-pill" role="img"[^>]*>(?:(?!</span></span>).)*?>${name}</span>.*?</span>(?=<span class="debug-(?:pill|chip)|</div>)`))?.[0];
-  assert.match(pill("github"), /^<span class="debug-pill" role="img" aria-label="github \(global\) · Connected" title="github \(global\) · Connected"><span class="debug-dot is-ok" aria-hidden="true"><\/span><span>github<\/span><\/span>$/);
-  assert.match(pill("linear"), /aria-label="linear \(project\) · Needs sign-in"[^>]*><span class="debug-dot is-warning" aria-hidden="true"><\/span><span>linear<\/span><span class="debug-pill-state">· Needs sign-in<\/span><\/span>$/);
+  assert.match(pill("github"), /^<span class="debug-pill" role="img" aria-label="github \(global\) · 已连接" title="github \(global\) · 已连接"><span class="debug-dot is-ok" aria-hidden="true"><\/span><span>github<\/span><\/span>$/);
+  assert.match(pill("linear"), /aria-label="linear \(project\) · 需要登录"[^>]*><span class="debug-dot is-warning" aria-hidden="true"><\/span><span>linear<\/span><span class="debug-pill-state">· 需要登录<\/span><\/span>$/);
   // Let go while idle: a dim ring and a dim name, no state word (it was connected).
-  assert.match(pill("fs"), /aria-label="fs \(global\) · Connected · released"[^>]*><span class="debug-dot is-dim is-ring" aria-hidden="true"><\/span><span class="is-dim">fs<\/span><\/span>$/);
-  assert.match(pill("sentry"), /aria-label="sentry \(global\) · Did not connect · error"[^>]*><span class="debug-dot is-error" aria-hidden="true"><\/span><span>sentry<\/span><span class="debug-pill-state">· Did not connect<\/span><\/span>$/);
+  assert.match(pill("fs"), /aria-label="fs \(global\) · 已连接 · 已释放"[^>]*><span class="debug-dot is-dim is-ring" aria-hidden="true"><\/span><span class="is-dim">fs<\/span><\/span>$/);
+  assert.match(pill("sentry"), /aria-label="sentry \(global\) · 未能连接 · 错误"[^>]*><span class="debug-dot is-error" aria-hidden="true"><\/span><span>sentry<\/span><span class="debug-pill-state">· 未能连接<\/span><\/span>$/);
   // Red beside a green dot of the same shape: the error is written out too.
-  assert.match(pill("jira"), /<span class="debug-dot is-error" aria-hidden="true"><\/span><span>jira<\/span><span class="debug-pill-state">· error<\/span><\/span>$/);
+  assert.match(pill("jira"), /<span class="debug-dot is-error" aria-hidden="true"><\/span><span>jira<\/span><span class="debug-pill-state">· 错误<\/span><\/span>$/);
   const text = visibleText(card);
-  assert.ok(text.includes("linear · Needs sign-in") && text.includes("sentry · Did not connect"), text);
+  assert.ok(text.includes("linear · 需要登录") && text.includes("sentry · 未能连接"), text);
 });
 
 test("the run's chips show only what is true: no chip row while idle, amber for what waits", () => {
@@ -576,9 +575,9 @@ test("the run's chips show only what is true: no chip row while idle, amber for 
   };
   assert.doesNotMatch(detailOf(render()), /debug-chip/);
   const busy = withRun({ running: true, streaming: true, promptRunning: true, pendingPrompts: 1, retrying: true });
-  assert.match(detailOf(busy), /<span class="debug-chip is-dim">streaming<\/span><span class="debug-chip is-dim">prompt<\/span><span class="debug-chip is-warning">1 more prompts in flight<\/span><span class="debug-chip is-warning">retrying<\/span><span class="debug-line">/);
+  assert.match(detailOf(busy), /<span class="debug-chip is-dim">流式输出<\/span><span class="debug-chip is-dim">提示词运行中<\/span><span class="debug-chip is-warning">另有 1 个提示词进行中<\/span><span class="debug-chip is-warning">重试中<\/span><span class="debug-line">/);
   const row = busy.slice(busy.indexOf("debug-row is-current"), busy.indexOf("debug-detail"));
-  assert.match(row, /<span class="debug-status is-accent" title="running">/, "running is the status slot, not a chip");
+  assert.match(row, /<span class="debug-status is-accent" title="运行中">/, "running is the status slot, not a chip");
 });
 
 /** The chat's wrapper closing after Stop, its row's summary saying so too. */
@@ -603,19 +602,19 @@ test("notable states show in place and leave the verdict at OK", () => {
     page: page({ client: client({ released: { active: true, count: 1, lastAt: LOCAL - MINUTE }, graceDueAt: LOCAL + 24 * SECOND }) }),
     server: closingAfterStop(),
   });
-  assert.match(html, /<span class="debug-panel-status-text">OK<\/span>/);
+  assert.match(html, /<span class="debug-panel-status-text">正常<\/span>/);
   assert.doesNotMatch(html, /<ul/);
   const list = sessionList(html);
   const row = list.slice(list.indexOf("debug-row is-current"), list.indexOf("debug-detail"));
   assert.match(row, /<span class="debug-status-ring is-closing"><\/span>/);
-  assert.match(detailOf(html), /<span class="debug-chip is-warning">closing 13s ago<\/span>/);
+  assert.match(detailOf(html), /<span class="debug-chip is-warning">13秒前开始关闭<\/span>/);
   // Closing after Stop: the stop square, then the time alone, amber; the tooltip says why.
-  assert.match(row, /<span class="debug-row-idle is-warning" title="Reap countdown 30s · timeout 10m 00s · Stopped: [^"]*">[^]*?<span class="debug-row-forced" role="img" aria-label="closes in 30s \(after Stop\)"[^>]*><\/span><span class="debug-row-idle-text">30s<\/span>/);
+  assert.match(row, /<span class="debug-row-idle is-warning" title="回收倒计时 30秒 · 超时 10分00秒 · 已停止：[^"]*">[^]*?<span class="debug-row-forced" role="img" aria-label="30秒后关闭（已停止）"[^>]*><\/span><span class="debug-row-idle-text">30秒<\/span>/);
   const stream = measure(html, "stream");
-  assert.match(stream, /<span class="debug-chip is-accent">released while hidden<\/span><span class="debug-chip is-accent">Grace before close in 24s<\/span>/);
+  assert.match(stream, /<span class="debug-chip is-accent">页面隐藏时释放<\/span><span class="debug-chip is-accent">关闭前宽限 24秒后<\/span>/);
 });
 
-test("a session closing after Stop carries a stop square, not the amber alone", () => {
+test("a session closing after 停止 carries a stop square, not the amber alone", () => {
   const rowOf = (forcedByStop) => {
     const answer = reply();
     answer.sessions = answer.sessions.map((entry) => (entry.sessionId === "notes-1" ? { ...entry, awaitingInput: false, running: true, forcedByStop } : entry));
@@ -625,7 +624,7 @@ test("a session closing after Stop carries a stop square, not the amber alone", 
   };
   const forced = rowOf(true);
   const normal = rowOf(false);
-  assert.match(forced, /<span class="debug-row-idle is-warning">[^]*?<span class="debug-row-forced" role="img" aria-label="closes in 2m 50s \(after Stop\)" title="closes in 2m 50s \(after Stop\)"><\/span><span class="debug-row-idle-text">2m 50s<\/span>/);
+  assert.match(forced, /<span class="debug-row-idle is-warning">[^]*?<span class="debug-row-forced" role="img" aria-label="2分50秒后关闭（已停止）" title="2分50秒后关闭（已停止）"><\/span><span class="debug-row-idle-text">2分50秒<\/span>/);
   assert.doesNotMatch(normal, /debug-row-forced/);
   // More than a class name apart: with every class dropped, the two rows still differ.
   const shape = (html) => html.replace(/ class="[^"]*"/g, "").replace(/ title="[^"]*"/g, "");
@@ -649,14 +648,14 @@ test("the sparklines draw the poll samples against the 5 s timeout", () => {
     },
   });
   const labels = ariaLabels(html);
-  assert.ok(labels.includes("3 answers · median 41 ms · max 1s"), labels.join("\n"));
+  assert.ok(labels.includes("3 次应答 · 中位数 41 ms · 最长 1秒"), labels.join("\n"));
   // The values line up on the right, in ms in every language.
   assert.match(panelSource, /\.debug-measures > \.debug-value \{\s*justify-self: end;\s*text-align: right;/);
   assert.equal(zhCNLocale.messages["debug.duration.ms"], "{count} ms");
-  assert.ok(labels.includes("40 polls · 1 failed · not yet"));
+  assert.ok(labels.includes("40 次 · 1 次失败 · 尚无"));
   // A faint baseline under the bars, the chart's full width: a few short answers are no dashed line.
   assert.match(html, /<svg width="120" height="15" viewBox="0 0 120 15" aria-hidden="true"><rect x="0" y="14" width="120" height="1" style="fill:var\(--border\)"><\/rect><rect class="is-dim"/);
-  const empty = section(html, "page", "server").split('aria-label="40 polls')[1];
+  const empty = section(html, "page", "server").split('aria-label="40 次')[1];
   assert.match(empty, /^[^>]*><svg[^>]*><rect x="0" y="14" width="120" height="1" style="fill:var\(--border\)"><\/rect><\/svg>/, "drawn before the first sample");
   // Newest on the right, standing on the baseline; 41 ms and 20 ms are 1px stubs, 1 s is 6px, a failure is a full bar.
   assert.match(html, /<rect class="is-dim" x="105" y="13" width="3" height="1" fill="currentColor"><\/rect>/);
@@ -669,13 +668,13 @@ test("the sparklines draw the poll samples against the 5 s timeout", () => {
 test("without a chat or with a reader that throws, the panel says so and still shows the server", () => {
   const failed = render({ page: page({ client: null, clientFailed: true }) });
   assert.ok(failed.includes(`<span class="debug-issue-text">${t("debug.stream.readerFailed")}</span>`));
-  assert.match(failed, /Issues: 1/);
-  assert.ok(visibleText(failed).includes("Uptime 2h 00m"));
+  assert.match(failed, /问题：1/);
+  assert.ok(visibleText(failed).includes("运行时长 2小时00分"));
   const none = render({ page: page({ client: null }), selectedSessionId: null });
   assert.ok(visibleText(none).includes(t("debug.stream.noChat")));
   assert.ok(visibleText(none).includes(t("debug.server.noSession")));
   const before = render({ page: null });
-  assert.match(before, /<span class="debug-panel-status-text">Reading…<\/span>/);
+  assert.match(before, /<span class="debug-panel-status-text">正在读取…<\/span>/);
   assert.doesNotMatch(before, /<div class="debug-panel-scroll">/);
 });
 
@@ -721,7 +720,7 @@ test("a tooltip holds the view still: the mouse on a titled element freezes what
   assert.match(panelSource, /const shown = held \?\? \{ page, server, samples \};/);
 });
 
-test("the Debug button only toggles its panel, left of the session stats", () => {
+test("the 调试 button only toggles its panel, left of the session stats", () => {
   const button = between(shellSource, "const renderDebugButton = (mobile: boolean) => {", "const renderMainFileToggle");
   assert.match(button, /onClick=\{\(\) => toggleTopPanel\("debug", mobile\)\}/);
   assert.doesNotMatch(button, /handleSystemInfoToggle|sendAgentCommand|fetch\(|setSessionKey|loadSession|systemInfoLoaderRef/);
@@ -729,7 +728,7 @@ test("the Debug button only toggles its panel, left of the session stats", () =>
   assert.match(button, /aria-pressed=\{open\}/);
   assert.match(button, /data-mobile-toolbar-action=\{mobile \? "debug" : undefined\}/);
   assert.match(button, /if \(!showChat\) return null;/);
-  assert.notEqual(enLocale.messages["debug.title"], enLocale.messages["session.title"], "e2e finds the stats button by its own name");
+  assert.notEqual(zhCNLocale.messages["debug.title"], zhCNLocale.messages["session.title"], "e2e finds the stats button by its own name");
 
   // Desktop: after the chat's actions, right before the stats, taking the free space.
   assert.match(shellSource, /\{renderChatToolbarActions\(false\)\}\s*\{renderDebugButton\(false\)\}\s*\{renderSessionStatsButton\(false\)\}/);
@@ -742,7 +741,7 @@ test("the Debug button only toggles its panel, left of the session stats", () =>
   assert.match(shellSource, /\{renderChatToolbarActions\(true\)\}\s*\{renderDebugButton\(true\)\}\s*<\/div>/);
 });
 
-test("Escape with focus in the panel gives it back to the Debug button, after the panel left the page", () => {
+test("Escape with focus in the panel gives it back to the 调试 button, after the panel left the page", () => {
   assert.match(panelSource, /<section ref=\{sectionRef\} className="debug-panel"/);
   assert.match(panelSource, /createDebugPanelEscapeListener\(\s*document,\s*\(\) => sectionRef\.current,\s*\(restoreFocus\) => onCloseRef\.current\(restoreFocus\),\s*\)/);
   const button = between(shellSource, "const renderDebugButton = (mobile: boolean) => {", "const renderMainFileToggle");
@@ -758,7 +757,7 @@ test("Escape with focus in the panel gives it back to the Debug button, after th
   const body = { name: "body" };
   assert.equal(focusIfLost({ activeElement: body, body }, debugButton), true);
   assert.equal(focusIfLost({ activeElement: { name: "composer" }, body }, debugButton), false);
-  assert.equal(focusIfLost({ activeElement: body, body }, null), false, "no Debug button on screen (narrow phone, more closed)");
+  assert.equal(focusIfLost({ activeElement: body, body }, null), false, "no 调试 button on screen (narrow phone, more closed)");
   assert.deepEqual(focused, ["debug"]);
 });
 

@@ -6,13 +6,13 @@ const jiti = createJiti(import.meta.url, {
   jsx: { runtime: "automatic" },
   tsconfigPaths: true,
 });
+const { zhCNLocale } = await jiti.import("@/lib/i18n/messages/zh-CN.ts");
 const React = await jiti.import("react");
 const { renderToStaticMarkup } = await jiti.import("react-dom/server");
 const { TreeNode } = await jiti.import("./FileExplorer.tsx");
-const { enLocale } = await jiti.import("@/lib/i18n/messages/en.ts");
 const { translateMessage } = await jiti.import("@/lib/i18n/format.ts");
 
-const t = (key, params) => translateMessage("en", key, { en: enLocale.messages }, params);
+const t = (key, params) => translateMessage("zh-CN", key, { "zh-CN": zhCNLocale.messages }, params);
 
 function renderNode(node, { open = false, parentHidden } = {}) {
   return renderToStaticMarkup(React.createElement(TreeNode, {
@@ -44,13 +44,13 @@ test("an entry Git ignores is dimmed and says why", () => {
   const html = renderNode(file("debug.log", { hidden: "ignored" }));
   assert.match(html, /data-hidden-reason="ignored"/);
   assert.match(html, /opacity:0\.55/);
-  assert.match(html, /title="\/repo\/debug\.log\nIgnored by Git"/);
+  assert.match(html, /title="\/repo\/debug\.log\n已被 Git 忽略"/);
 });
 
 test("an entry the fallback name list hides names that reason", () => {
   const html = renderNode(file("node_modules", { isDir: true, loaded: false, children: [], hidden: "excluded" }));
   assert.match(html, /data-hidden-reason="excluded"/);
-  assert.match(html, /Hidden by default/);
+  assert.match(html, /默认隐藏（生成或依赖目录）/);
 });
 
 test("entries inside a hidden directory inherit its reason", () => {

@@ -151,31 +151,31 @@ test("on a desktop the files sit below the sessions by default, both in view", (
   assert.match(html, /^<div class="session-sidebar is-files-below" style="--sidebar-files-height:320px">/);
   // No tabs: the brand (its name says the versions a click shows), then New
   // and the sessions' search. No view options.
-  assert.match(html, /<div class="sidebar-header"><button type="button" class="sidebar-brand" aria-label="Pi Web, versions: web [^",]+, pi [^",]+">Pi Web<\/button><span class="sidebar-header-spacer"><\/span><button type="button" class="sidebar-new-button"/);
-  assert.doesNotMatch(html, /role="tablist"|role="tab"|role="tabpanel"|View options|sidebar-title/);
-  assert.match(html, /<span class="sidebar-new-label">New<\/span><\/button><button type="button" title="Search conversations" aria-label="Search conversations" aria-expanded="false" aria-controls="session-search-input" class="sidebar-search-toggle">/);
+  assert.match(html, /<div class="sidebar-header"><button type="button" class="sidebar-brand" aria-label="Pi Web，版本：web [^",]+，pi [^",]+">Pi Web<\/button><span class="sidebar-header-spacer"><\/span><button type="button" class="sidebar-new-button"/);
+  assert.doesNotMatch(html, /role="tablist"|role="tab"|role="tabpanel"|查看 options|sidebar-title/);
+  assert.match(html, /<span class="sidebar-new-label">新建<\/span><\/button><button type="button" title="搜索对话" aria-label="搜索对话" aria-expanded="false" aria-controls="session-search-input" class="sidebar-search-toggle">/);
   // Two regions, both shown: the sessions, the separator, the files.
   const sessions = openingTag(html, "session-sidebar-panel-sessions");
   const files = openingTag(html, "session-sidebar-panel-files");
-  assert.equal(sessions, '<div id="session-sidebar-panel-sessions" role="region" aria-label="Sessions" class="sidebar-panel sidebar-sessions-panel">');
-  assert.equal(files, '<div id="session-sidebar-panel-files" role="region" aria-label="Files" class="sidebar-panel sidebar-files-panel">');
+  assert.equal(sessions, "<div id=\"session-sidebar-panel-sessions\" role=\"region\" aria-label=\"会话\" class=\"sidebar-panel sidebar-sessions-panel\">");
+  assert.equal(files, "<div id=\"session-sidebar-panel-files\" role=\"region\" aria-label=\"文件\" class=\"sidebar-panel sidebar-files-panel\">");
   const separator = html.slice(html.indexOf('role="separator"') - 200, html.indexOf(files));
   assert.ok(html.indexOf(sessions) < html.indexOf('role="separator"') && html.indexOf('role="separator"') < html.indexOf(files), "sessions, separator, files");
-  assert.match(separator, /<div aria-label="Resize file browser" aria-orientation="horizontal" aria-valuemax="2000" aria-valuemin="220" aria-valuenow="320" aria-valuetext="320 px" role="separator" tabindex="0" aria-controls="session-sidebar-panel-files" class="panel-resize-handle sidebar-files-resize-handle" data-resize-handle="sidebar-files" title="Resize file browser: Drag to resize\. Double-click or press Enter to reset\."><\/div>$/);
+  assert.match(separator, /<div aria-label="调整文件浏览器高度" aria-orientation="horizontal" aria-valuemax="2000" aria-valuemin="220" aria-valuenow="320" aria-valuetext="320 px" role="separator" tabindex="0" aria-controls="session-sidebar-panel-files" class="panel-resize-handle sidebar-files-resize-handle" data-resize-handle="sidebar-files" title="调整文件浏览器高度: 拖动调整高度。双击或按 Enter 恢复默认值。"><\/div>$/);
   // The files section: one header row (folds it; the files' keys at its
   // end in the files tab's order, the file search last), then its body: the
   // picker's one row and the tree. No row of keys under the picker; nothing
   // changed, so no count after the label.
   const filesPanel = html.slice(html.indexOf(files) + files.length);
-  assert.match(filesPanel, /^<div class="sidebar-files-section"><button type="button" class="sidebar-files-section-toggle" aria-expanded="true" aria-controls="session-sidebar-files-body"><svg width="12" height="12"[^>]*stroke-width="3"[^>]*class="session-tree-chevron is-open"[^>]*>[\s\S]*?<\/svg><span class="sidebar-files-section-label">Files<\/span><\/button><div class="sidebar-files-keys" role="group" aria-label="File actions"><button type="button" title="Open workspace terminal" aria-label="Open workspace terminal" class="sidebar-tool-button">/);
+  assert.match(filesPanel, /^<div class="sidebar-files-section"><button type="button" class="sidebar-files-section-toggle" aria-expanded="true" aria-controls="session-sidebar-files-body"><svg width="12" height="12"[^>]*stroke-width="3"[^>]*class="session-tree-chevron is-open"[^>]*>[\s\S]*?<\/svg><span class="sidebar-files-section-label">文件<\/span><\/button><div class="sidebar-files-keys" role="group" aria-label="文件操作"><button type="button" title="打开工作区终端" aria-label="打开工作区终端" class="sidebar-tool-button">/);
   assert.match(filesPanel, /<div id="session-sidebar-files-body" class="sidebar-files-body"><div class="sidebar-files-head"><div class="project-picker is-row" role="group"/);
   assert.match(filesPanel, /<div class="sidebar-files-scroll scrollbar-subtle">/);
   assert.doesNotMatch(filesPanel, /sidebar-files-toolbar|sidebar-files-title|sidebar-files-actions|sidebar-files-section-search|sidebar-files-changes/);
   assert.doesNotMatch(filesPanel, /sidebar-files-section-count/);
   // Pins and archive not loaded yet: the tree waits instead of flashing archived rows.
-  assert.match(html, /<div class="session-tree-message">Loading\.\.\.<\/div>/);
+  assert.match(html, /<div class="session-tree-message">加载中\.\.\.<\/div>/);
   // Without a folder the files' search has nothing to search.
-  assert.match(render(), /<button type="button" disabled="" title="Search files" aria-label="Search files" aria-expanded="false" aria-controls="file-search-input" class="sidebar-tool-button">/);
+  assert.match(render(), /<button type="button" disabled="" title="搜索文件" aria-label="搜索文件" aria-expanded="false" aria-controls="file-search-input" class="sidebar-tool-button">/);
 });
 
 test("the fold's and the archive view's motions in the CSS last as long as the hook's phase", async () => {
@@ -245,15 +245,15 @@ test("below the sessions the section's header row holds the files' keys in the f
   // which the files tab leaves to the toolbar row. The search is the
   // files' (the toolbar row's is the sessions'), an expandable control,
   // not a toggle. Seven keys always there, so none ever moves.
-  assert.match(keys, /^<div class="sidebar-files-keys" role="group" aria-label="File actions">/);
+  assert.match(keys, /^<div class="sidebar-files-keys" role="group" aria-label="文件操作">/);
   assert.deepEqual(keyLabels(keys), [
-    "Open workspace terminal",
-    "Open in file manager",
-    "Upload files to project root",
-    "Refresh file list",
-    "Show ignored files pressed=false",
-    "0 changed files (disabled) pressed=false",
-    "Search files expanded=false",
+    "打开工作区终端",
+    "在文件管理器中打开",
+    "将文件上传到项目根目录",
+    "刷新文件列表",
+    "显示被忽略的文件 pressed=false",
+    "0 个变更文件 (disabled) pressed=false",
+    "搜索文件 expanded=false",
   ]);
   assert.equal((keys.match(/<button /g) ?? []).length, 7);
   // Their icons are 13px, a size under the files tab's 14px, in the sidebar
@@ -267,18 +267,18 @@ test("below the sessions the section's header row holds the files' keys in the f
   // Without a folder they wait, disabled, in the same places; so does the
   // terminal without a handler, where the files tab leaves it out.
   assert.deepEqual(keyLabels(sectionKeys(render())), [
-    "Open workspace terminal (disabled)",
-    "Open in file manager (disabled)",
-    "Upload files to project root (disabled)",
-    "Refresh file list (disabled)",
-    "Show ignored files (disabled) pressed=false",
-    "0 changed files (disabled) pressed=false",
-    "Search files (disabled) expanded=false",
+    "打开工作区终端 (disabled)",
+    "在文件管理器中打开 (disabled)",
+    "将文件上传到项目根目录 (disabled)",
+    "刷新文件列表 (disabled)",
+    "显示被忽略的文件 (disabled) pressed=false",
+    "0 个变更文件 (disabled) pressed=false",
+    "搜索文件 (disabled) expanded=false",
   ]);
   assert.deepEqual(keyLabels(sectionKeys(render({ selectedCwd: "/work/alpha" }))).slice(0, 3), [
-    "Open workspace terminal (disabled)",
-    "Open in file manager",
-    "Upload files to project root",
+    "打开工作区终端 (disabled)",
+    "在文件管理器中打开",
+    "将文件上传到项目根目录",
   ]);
 
   // The keys share their group's width alike, 18 to 26px each. The group
@@ -444,8 +444,8 @@ test("the files show the composer bar's picker in one row below the sessions, as
   const html = render({ selectedCwd: "/work/alpha" });
   const filesPanel = html.slice(html.indexOf('id="session-sidebar-panel-files"'));
   // Before the sidebar has a cwd: the project box asks for one.
-  assert.match(filesPanel, /<div class="project-picker is-row" role="group" aria-label="Project and worktree"><button type="button" class="project-picker-button is-project is-empty" title="" aria-haspopup="menu" aria-expanded="false">/);
-  assert.match(filesPanel, /<span class="project-picker-label">Select project…<\/span>/);
+  assert.match(filesPanel, /<div class="project-picker is-row" role="group" aria-label="项目和 worktree"><button type="button" class="project-picker-button is-project is-empty" title="" aria-haspopup="menu" aria-expanded="false">/);
+  assert.match(filesPanel, /<span class="project-picker-label">选择项目…<\/span>/);
 });
 
 test("the running poll keeps the same Set while the running ids stay the same", () => {

@@ -33,7 +33,7 @@ const paneSource = await readFile(new URL("./McpAddServer.tsx", import.meta.url)
 
 const messages = Object.fromEntries(getSupportedLocales().map((id) => [id, getLocalePlugin(id).messages]));
 const translator = (locale) => (key, params) => translateMessage(locale, key, messages, params);
-const t = translator("en");
+const t = translator("zh-CN");
 
 // One note per code, and one per variant, with the parameters the importer writes for it. A new
 // code without a line here fails, so its words cannot be forgotten in any locale.
@@ -165,17 +165,17 @@ test("every invalid-config problem the importer's validator names has its words"
 test("a note names the server it is about, a field by its label, and the validator's problem in words", () => {
   assert.equal(
     mcpImportNoteText({ code: "zed-extension-server", params: { server: "zed-thing" } }, t),
-    "zed-thing: It comes from a Zed extension, which only Zed can start.",
+    "zed-thing：它来自 Zed 扩展，只有 Zed 才能启动它。",
   );
   const fields = [{ id: "input.pat", kind: "password", reason: "input", label: "GitHub PAT", targets: [] }];
-  assert.equal(mcpImportNoteText({ code: "field-required", params: { field: "input.pat" } }, t, fields), "Fill in GitHub PAT.");
+  assert.equal(mcpImportNoteText({ code: "field-required", params: { field: "input.pat" } }, t, fields), "请填写 GitHub PAT。");
   assert.equal(
     mcpImportNoteText({ code: "invalid-config", params: { server: "x", problem: "args", index: 2 } }, t),
-    "x: pi would refuse it: args[2] is not text.",
+    "x：pi 会拒绝它：args[2] 不是文本。",
   );
   assert.equal(
     mcpImportNoteText({ code: "cli-option-wrong-transport", params: { cli: "claude", option: "--env", transport: "http" } }, t),
-    "The claude option --env does not apply to HTTP servers.",
+    "claude 的选项 --env 不适用于 HTTP 服务器。",
   );
   // Source text shows its hidden characters.
   assert.match(mcpImportNoteText({ code: "dropped-key", params: { key: "a‮b" } }, t), /a\\u\{202E\}b/);
@@ -217,7 +217,7 @@ test("a project server is written where a decision trusts the folder, trusted wi
   assert.deepEqual(block(overview({ trustFolder: { allowed: false, reason: "folder-not-fresh" } })), { kind: "folder-not-fresh" });
 });
 
-test("the analysis previews the paste, and Add trusts a fresh folder only for a project server", () => {
+test("the analysis previews the paste, and 添加 trusts a fresh folder only for a project server", () => {
   const global = analyse({ text: "npx -y @scope/lint-mcp" });
   assert.equal(global.scope, "global");
   assert.equal(global.name, "lint");
@@ -244,7 +244,7 @@ test("the analysis previews the paste, and Add trusts a fresh folder only for a 
   assert.equal(secret.submitBlock, undefined);
 });
 
-test("a literal secret keeps the Project option closed, unless the value is read from a variable", () => {
+test("a literal secret keeps the 项目 option closed, unless the value is read from a variable", () => {
   const text = JSON.stringify({ mcpServers: { gh: { command: "npx", args: ["gh-mcp"], env: { GITHUB_TOKEN: "YOUR_TOKEN" } } } });
   // Typed or not yet, a password field is a secret in the file.
   assert.deepEqual(analyse({ text }).projectBlock, { kind: "secret", fields: ["env.GITHUB_TOKEN"], fixed: false });
@@ -307,7 +307,7 @@ test("an optional password field left blank is no secret: it is left out, as the
   assert.deepEqual([field.id, field.kind, field.optional], ["headers.X-Api-Key", "password", true]);
   assert.deepEqual(blank.secretPaths, []);
   assert.equal(blank.projectBlock, undefined);
-  assert.equal(blank.submitBlock, undefined, "Project stays available, and the route accepts it");
+  assert.equal(blank.submitBlock, undefined, "项目 stays available, and the route accepts it");
   const typed = analyse({ text, scope: "project", values: { "headers.X-Api-Key": "lin_api_x" } });
   assert.deepEqual(typed.submitBlock, { kind: "scope", block: { kind: "secret", fields: ["headers.X-Api-Key"], fixed: false } }, "once typed, it counts");
 });
@@ -337,7 +337,7 @@ test("a variable name pi does not accept is said under its box, not as a value s
   const bad = analyse({ text, references: { "env.GITHUB_TOKEN": "my-token" } });
   assert.deepEqual(bad.submitBlock, { kind: "field-invalid", fields: ["GITHUB_TOKEN"] });
   assert.deepEqual(bad.fieldProblems, { "env.GITHUB_TOKEN": { code: "field-reference-invalid", params: { field: "env.GITHUB_TOKEN", problem: "name" } } });
-  assert.match(mcpImportNoteText(bad.fieldProblems["env.GITHUB_TOKEN"], t, bad.server.fields), /^GITHUB_TOKEN: a variable name has letters/);
+  assert.match(mcpImportNoteText(bad.fieldProblems["env.GITHUB_TOKEN"], t, bad.server.fields), /^GITHUB_TOKEN：变量名只能包含字母/);
   // Unanswered, it is still to fill in, and nothing is said under the box.
   const unanswered = analyse({ text });
   assert.deepEqual(unanswered.submitBlock, { kind: "fields", fields: ["GITHUB_TOKEN"] });
@@ -353,7 +353,7 @@ test("an empty variable box asks for a name, as a value still to fill in, never 
   const empty = analyse({ text: secret, secretReferences: { "env.API_TOKEN": "" } });
   assert.deepEqual(empty.fieldProblems, { "env.API_TOKEN": { code: "field-reference-invalid", params: { field: "env.API_TOKEN", problem: "missing" } } });
   assert.equal(mcpImportNoteKey(empty.fieldProblems["env.API_TOKEN"]), "mcp.importNote.field-reference-invalid.missing");
-  assert.equal(mcpImportNoteText(empty.fieldProblems["env.API_TOKEN"], t), "env.API_TOKEN: enter the name of the variable to read it from.");
+  assert.equal(mcpImportNoteText(empty.fieldProblems["env.API_TOKEN"], t), "env.API_TOKEN：请输入要读取的变量名。");
   assert.deepEqual(empty.submitBlock, { kind: "fields", fields: ["env.API_TOKEN"] });
   // Blank space is nothing typed yet too; text that is no variable name is the name problem.
   assert.equal(analyse({ text: secret, secretReferences: { "env.API_TOKEN": "  " } }).fieldProblems["env.API_TOKEN"].params.problem, "missing");
@@ -362,7 +362,7 @@ test("an empty variable box asks for a name, as a value still to fill in, never 
   const field = JSON.stringify({ mcpServers: { gh: { command: "npx", args: ["gh"], env: { GITHUB_TOKEN: "YOUR_TOKEN" } } } });
   const emptyField = analyse({ text: field, references: { "env.GITHUB_TOKEN": "" } });
   assert.equal(emptyField.fieldProblems["env.GITHUB_TOKEN"].params.problem, "missing");
-  assert.match(mcpImportNoteText(emptyField.fieldProblems["env.GITHUB_TOKEN"], t, emptyField.server.fields), /^GITHUB_TOKEN: enter the name/);
+  assert.match(mcpImportNoteText(emptyField.fieldProblems["env.GITHUB_TOKEN"], t, emptyField.server.fields), /^GITHUB_TOKEN：请输入要读取的变量名/);
   assert.deepEqual(emptyField.submitBlock, { kind: "fields", fields: ["GITHUB_TOKEN"] });
   // The route reads the same fill: a reference that is not text is a name problem, not an empty box.
   assert.equal(fillMcpImportFields(emptyField.server, { "env.GITHUB_TOKEN": { reference: 7 } }).notes[0].params.problem, "name");
@@ -429,7 +429,7 @@ test("a paste replaced by another server's drops what was typed for the first; a
   assert.deepEqual(mcpAddDraftWithPaste(picked, { text: oneEdited }), { ...picked, text: oneEdited });
 });
 
-test("Add waits, with a reason, for a free valid name, the values, and a scope it may write", () => {
+test("添加 waits, with a reason, for a free valid name, the values, and a scope it may write", () => {
   const taken = analyse({ text: "https://mcp.example.com/mcp", name: "docs" }, overview({ servers: [{ name: "docs", scope: "global" }] }));
   assert.deepEqual(taken.submitBlock, { kind: "name-taken", name: "docs", suggestedName: "docs-2", path: globalFile.path });
   assert.deepEqual(analyse({ text: "https://mcp.example.com/mcp", name: "a b" }).submitBlock, { kind: "name-invalid" });
@@ -447,14 +447,14 @@ test("Add waits, with a reason, for a free valid name, the values, and a scope i
   assert.equal(analyse({ text: "npx x" }, overview({ mcp: { available: false, reason: "builtin-disabled", error: "x" } })).submitBlock, undefined);
 });
 
-test("a config pi's validator refuses once the values are filled in blocks Add, worded as the importer words it", () => {
+test("a config pi's validator refuses once the values are filled in blocks 添加, worded as the importer words it", () => {
   const text = "https://<your-server>/mcp";
   const [field] = parseMcpImport(text).servers[0].fields;
   const blocked = analyse({ text, values: { [field.id]: "my server" } });
   assert.equal(blocked.submitBlock?.kind, "config-invalid");
   assert.equal(blocked.submitBlock.note.code, "invalid-config");
   assert.equal(blocked.submitBlock.note.params.url, blocked.preview.target, "the URL as the preview shows it");
-  assert.equal(mcpImportNoteText(blocked.submitBlock.note, t), "pi would refuse it: https://my server/mcp is not an http or https URL.");
+  assert.equal(mcpImportNoteText(blocked.submitBlock.note, t), "pi 会拒绝它：https://my server/mcp 不是 http 或 https URL。");
   // A value that makes a valid URL does not.
   assert.equal(analyse({ text, values: { [field.id]: "mcp.example.com" } }).submitBlock, undefined);
 
@@ -466,7 +466,7 @@ test("a config pi's validator refuses once the values are filled in blocks Add, 
   assert.ok(keyField && hostField, JSON.stringify(fields));
   const hidden = analyse({ text: both, values: { [hostField.id]: "my server", [keyField.id]: "s3cretvalue" } });
   assert.equal(hidden.submitBlock?.kind, "config-invalid");
-  assert.match(mcpImportNoteText(hidden.submitBlock.note, t), /api_key=••• is not an http or https URL\.$/);
+  assert.match(mcpImportNoteText(hidden.submitBlock.note, t), /api_key=••• 不是 http 或 https URL。$/);
   assert.doesNotMatch(JSON.stringify(hidden.submitBlock), /s3cretvalue/);
 });
 
@@ -525,7 +525,7 @@ test("the pi-config toggle is offered only where the importer reads the paste di
   const json = JSON.stringify({ mcpServers: { x: { command: "npx", args: ["--key", "YOUR_KEY"], env: { TOKEN: "YOUR_TOKEN" } } } });
   const parsed = parseMcpImport(json);
   assert.equal(mcpAddOffersRawPi(json), true);
-  assert.equal(mcpAddOffersRawPi(JSON.stringify({ command: "npx", env: { A: "!x" } })), true, "one server's JSON");
+  assert.equal(mcpAddOffersRawPi(JSON.stringify({ command: "npx", env: { A: "!x" } })), true, "单个服务器的 JSON");
   const fields = parsed.servers[0].fields;
   assert.equal(mcpFieldTakesVariable(fields.find((field) => field.targets[0].path[0] === "env")), true);
   assert.equal(mcpFieldTakesVariable(fields.find((field) => field.targets[0].path[0] === "args")), false, "pi substitutes nothing in args");
@@ -537,7 +537,7 @@ test("the helpers and the pane only use words from the locale files", () => {
     ...[...`${paneSource}\n${helperSource}`.matchAll(/"((?:mcp|config|skills)\.[\w.-]+)"/g)].map((match) => match[1]),
   ].filter((key) => key !== "mcp.json" && key !== "mcp.so"); // a file name and a catalog's label, not keys
   assert.ok(keys.length > 40);
-  for (const key of keys) assert.equal(typeof messages.en[key], "string", `${key} is missing from en.ts`);
+  for (const key of keys) assert.equal(typeof messages["zh-CN"][key], "string", `${key} is missing from zh-CN.ts`);
   assert.doesNotMatch(paneSource, />\s*[A-Z][a-z]+(?: [a-z]+){2,}[.:]?\s*</, "no English sentence in the markup");
   assert.doesNotMatch(paneSource, /\btitle=\{(?!t\("mcp\.add\.title"\))/, "no reason hides in a tooltip");
 });

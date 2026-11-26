@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync } from "fs";
 import { dirname, join } from "path";
 import webpush from "web-push";
 import { writePrivateFileAtomicSync } from "./atomic-file";
-import { enLocale } from "./i18n/messages/en";
+import { zhCNLocale } from "./i18n/messages/zh-CN";
 import { getLocalePlugin } from "./i18n/registry";
 import { getAgentDir } from "./session-reader";
 
@@ -98,14 +98,16 @@ function pushStatusCode(error: unknown): number | undefined {
 }
 
 /**
- * Locale lookup for push payloads. The browser reports its UI locale when it
- * subscribes; unknown locales fall back to English.
+ * Text for push payloads. The browser stores its UI locale with the
+ * subscription; the interface ships only Simplified Chinese, so anything else
+ * falls back to it.
  */
 export function localeText(locale: string, key: "sessionComplete" | "taskFinished"): string {
-  const localized = getLocalePlugin(locale)?.messages[key === "sessionComplete" ? "i18n.sessionComplete" : "i18n.taskFinished"];
+  const messageKey = key === "sessionComplete" ? "i18n.sessionComplete" : "i18n.taskFinished";
+  const localized = getLocalePlugin(locale)?.messages[messageKey];
   if (localized) return localized;
-  const message = enLocale.messages[key === "sessionComplete" ? "i18n.sessionComplete" : "i18n.taskFinished"];
-  return message ?? (key === "sessionComplete" ? "Session complete" : "Task finished.");
+  const message = zhCNLocale.messages[messageKey];
+  return message ?? (key === "sessionComplete" ? "任务完成" : "任务已完成。");
 }
 
 export function createWebPushNotifier(environment: WebPushEnvironment): WebPushNotifier {

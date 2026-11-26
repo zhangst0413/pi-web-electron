@@ -89,14 +89,14 @@ test("svgDataUrl percent-encodes the source, # and quotes included", () => {
 test("SvgBlock shows the source while streaming", () => {
   const html = withDOMParser(() => render({ code: svgSrc, isStreaming: true }));
   assert.match(html, /disabled/);
-  assert.match(html, />Preview</);
+  assert.match(html, />预览</);
   assert.match(html, /&lt;rect/);
   assert.doesNotMatch(html, /<img/);
 });
 
 test("SvgBlock previews the fence only as an <img>, never as markup", () => {
   const html = withDOMParser(() => render({ code: svgSrc }));
-  assert.match(html, />Source</);
+  assert.match(html, />源代码</);
   assert.match(html, />SVG</);
   const src = html.match(/<img src="([^"]*)"/)[1];
   assert.equal(src, svgDataUrl(svgSrc));
@@ -106,7 +106,7 @@ test("SvgBlock previews the fence only as an <img>, never as markup", () => {
 test("SvgBlock shows a notice for a fence that is not an SVG", () => {
   const html = withDOMParser(() => render({ code: "<div>not svg</div>" }));
   assert.match(html, /mermaid-block-error/);
-  assert.match(html, /Invalid SVG image/);
+  assert.match(html, /SVG 图片无效/);
   assert.doesNotMatch(html, /<img|>SVG</);
 });
 

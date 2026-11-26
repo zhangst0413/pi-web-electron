@@ -351,7 +351,7 @@ test("shows the follow-up shortcut in the button tooltip", () => {
     })),
   );
 
-  assert.match(html, /title="Queue this message after the agent finishes \(Alt\/Option\+Enter\)"/);
+  assert.match(html, /title="在 Agent 完成后排队此消息 \(Alt\/Option\+Enter\)"/);
   assert.match(html, /aria-keyshortcuts="Alt\+Enter"/);
 });
 
@@ -364,7 +364,7 @@ test("scrolls a long queue inside its own box, under the count and Recall (#1428
   );
   const rows = html.match(/<div style="max-height:min\(180px[^"]*overflow-y:auto[^"]*">(.*)$/s);
   assert.ok(rows, "queued rows sit in a capped scroll box");
-  assert.match(html.slice(0, rows.index), /Queued · 20<\/span>.*Recall to input<\/button>/s);
+  assert.match(html.slice(0, rows.index), /已排队 · 20<\/span>.*移回输入框<\/button>/s);
   assert.deepEqual([...rows[1].matchAll(/<div title="([^"]+)"/g)].map((match) => match[1]),
     [...Array.from({ length: 19 }, (_, i) => `steer-${i}`), "follow-up-0"]);
 });
@@ -377,7 +377,7 @@ test("the composer stays editable while compacting and says messages queue", () 
   );
 
   assert.doesNotMatch(html, /<textarea[^>]*\bdisabled\b/);
-  assert.match(html, /placeholder="Compacting… messages queue until it finishes"/);
+  assert.match(html, /placeholder="正在压缩…消息会排队，压缩结束后发送"/);
 });
 
 test("ignores a pointer click that reaches Stop's slot just as the run ends", () => {
@@ -401,7 +401,7 @@ test("renders the upstream model error", () => {
   );
 
   assert.match(html, /role="alert"/);
-  assert.match(html, /Model error/);
+  assert.match(html, /模型错误/);
   assert.match(html, /providers\.custom\.models\.0\.id must not be empty/);
 });
 
@@ -425,7 +425,7 @@ test("renders enabledModels scope warnings", () => {
     ),
   );
 
-  assert.match(html, /Model scope warning/);
+  assert.match(html, /模型范围警告/);
   assert.match(html, /ghost-gateway/);
   assert.equal(
     renderToStaticMarkup(
@@ -452,8 +452,8 @@ test("keeps the model selector visible when a model error leaves no options", ()
     ),
   );
 
-  assert.match(html, />No models</);
-  assert.match(html, /title="No available models"/);
+  assert.match(html, />没有模型</);
+  assert.match(html, /title="没有可用模型"/);
 });
 
 test("renders the read-only tool preset as the active selection", () => {
@@ -471,11 +471,11 @@ test("renders the read-only tool preset as the active selection", () => {
     ),
   );
 
-  assert.match(html, /title="Change tool preset: read-only"/);
+  assert.match(html, /title="更改工具预设: read-only"/);
   assert.match(html, />read-only<\/span>/);
 });
 
-test("renders the empty tool preset as Chat only", () => {
+test("renders the empty tool preset as 仅聊天", () => {
   const html = renderToStaticMarkup(
     React.createElement(
       I18nProvider,
@@ -490,8 +490,8 @@ test("renders the empty tool preset as Chat only", () => {
     ),
   );
 
-  assert.match(html, /title="Change tool preset: Chat only"/);
-  assert.match(html, />Chat only<\/span>/);
+  assert.match(html, /title="更改工具预设: 仅聊天"/);
+  assert.match(html, />仅聊天<\/span>/);
 });
 
 test("renders the compact composer with the standard Send button and no session controls", () => {
@@ -509,9 +509,9 @@ test("renders the compact composer with the standard Send button and no session 
   );
 
   assert.match(html, /<textarea/);
-  assert.match(html, />Send<\/button>/);
+  assert.match(html, />发送<\/button>/);
   assert.equal((html.match(/<button\b/g) ?? []).length, 1);
-  assert.doesNotMatch(html, /type="file"|Attach files|Change tool preset/);
+  assert.doesNotMatch(html, /type="file"|附加文件|更改工具预设/);
 });
 
 test("the attach button takes any file when the chat handles them, and images only otherwise (#1101)", () => {
@@ -523,7 +523,7 @@ test("the attach button takes any file when the chat handles them, and images on
   const fileInput = (html) => html.match(/<input[^>]*type="file"[^>]*>/)?.[0] ?? "";
 
   const html = render({ onAttachFiles() {} });
-  assert.match(html, /title="Attach files"/);
+  assert.match(html, /title="附加文件"/);
   assert.match(fileInput(html), /multiple=""/);
   // No accept list and no capture: phones offer files, the photo library and the camera.
   assert.doesNotMatch(fileInput(html), /accept=|capture=/);
@@ -568,7 +568,7 @@ test("shows and locks the optimistic model while a switch is pending", () => {
     ),
   );
 
-  assert.match(html, /title="Switching model"/);
+  assert.match(html, /title="正在切换模型"/);
   assert.match(html, /aria-busy="true"/);
   assert.match(html, /disabled=""/);
   assert.match(html, />DeepSeek V4 Flash</);
@@ -633,18 +633,18 @@ test("renders the shared field model selector as a disabled gray control", () =>
         value: null,
         onChange() {},
         onClear() {},
-        emptyLabel: "Parent default",
-        ariaLabel: "Model override",
+        emptyLabel: "跟随父会话",
+        ariaLabel: "指定模型",
         disabled: true,
         variant: "field",
       }),
     ),
   );
 
-  assert.match(html, /aria-label="Model override"/);
+  assert.match(html, /aria-label="指定模型"/);
   assert.match(html, /disabled=""/);
   assert.match(html, /background:var\(--bg-panel\)/);
-  assert.match(html, />Parent default</);
+  assert.match(html, />跟随父会话</);
 });
 
 test("caps an upward menu to the visible space above its anchor", () => {
@@ -1017,8 +1017,8 @@ test("a compact error can be dismissed when the composer is given a handler", ()
     ),
   );
 
-  assert.match(render({ onDismissCompactError() {} }), /aria-label="Dismiss compaction error"/);
-  assert.doesNotMatch(render({}), /Dismiss compaction error/);
+  assert.match(render({ onDismissCompactError() {} }), /aria-label="关闭压缩错误"/);
+  assert.doesNotMatch(render({}), /关闭压缩错误/);
 });
 
 test("modelSupportsImageInput warns only when modality info is known and lacks image", () => {
@@ -1069,9 +1069,9 @@ test("renders image warnings for known text-only defaults without an explicit mo
       );
 
       assert.match(html, /<img/);
-      assert.equal(html.includes("Images may not be sent"), warningExpected, `default model: ${modelId}`);
+      assert.equal(html.includes("图片可能无法发送"), warningExpected, `default model: ${modelId}`);
       if (warningExpected) {
-        assert.match(html, /The selected model \(Text Only\) does not support image input/);
+        assert.match(html, /当前选择的模型（Text Only）不支持图片输入/);
         assert.ok(html.indexOf('role="alert"') < html.indexOf("<textarea"));
       }
     }

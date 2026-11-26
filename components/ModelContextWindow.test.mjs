@@ -19,7 +19,7 @@ test("a login model's row gets one named input whose placeholder is the window p
   assert.match(blank, /value=""/);
   assert.match(blank, /placeholder="272000"/);
   assert.match(blank, /inputmode="numeric"/i);
-  assert.match(blank, /aria-label="Context window for GPT Example"/);
+  assert.match(blank, /aria-label="GPT Example 的上下文窗口"/);
   assert.match(render("500000"), /value="500000"/);
 });
 

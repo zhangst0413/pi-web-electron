@@ -38,19 +38,19 @@ function render(selectedSessionId, locked = false) {
   })));
 }
 
-test("the Main agent chip sits outside the scrolling members, and only the current chip is a Tab stop", () => {
+test("the 主 Agent chip sits outside the scrolling members, and only the current chip is a Tab stop", () => {
   const html = render("b");
-  assert.match(html, /^<div role="toolbar" aria-label="Agents in this session"/);
+  assert.match(html, /^<div role="toolbar" aria-label="此会话的 Agents"/);
   // Main agent comes before the scroller; the members are inside it.
   const scroller = html.indexOf('class="tabbar-scroll"');
-  assert.ok(html.indexOf("Main agent") < scroller);
-  assert.ok(html.indexOf(">Inspect<") > scroller && html.indexOf(">Side chat 1<") > scroller);
+  assert.ok(html.indexOf("主 Agent") < scroller);
+  assert.ok(html.indexOf(">Inspect<") > scroller && html.indexOf(">侧聊 1<") > scroller);
 
   const buttons = [...html.matchAll(/<button[^>]*>/g)].map(([tag]) => tag);
   assert.equal(buttons.length, 5);
   assert.deepEqual(buttons.map((tag) => /tabindex="0"/.test(tag)), [false, false, true, false, false]);
   assert.deepEqual(buttons.map((tag) => /aria-current="true"/.test(tag)), [false, false, true, false, false]);
-  assert.match(buttons[0], /title="Back to the main agent"/);
+  assert.match(buttons[0], /title="回到主 Agent"/);
   // Colours are classes, so hover can change them.
   assert.ok(buttons.every((tag) => !/style="[^"]*(?:^|;)color:/.test(tag)));
   assert.match(buttons[1], /class="[^"]*text-text-muted[^"]*hover:text-text/);
@@ -58,19 +58,19 @@ test("the Main agent chip sits outside the scrolling members, and only the curre
 
 test("the padlock sits after the scrolling members and says whether the strip is locked", () => {
   const unlocked = [...render("b").matchAll(/<button[^>]*>/g)].map(([tag]) => tag).at(-1);
-  assert.match(unlocked, /aria-label="Lock: show this strip on the main agent too"/);
+  assert.match(unlocked, /aria-label="锁定：主 Agent 上也显示这一条"/);
   assert.match(unlocked, /aria-pressed="false"/);
-  assert.match(unlocked, /title="Lock: show this strip on the main agent too"/);
+  assert.match(unlocked, /title="锁定：主 Agent 上也显示这一条"/);
 
   const locked = [...render("b", true).matchAll(/<button[^>]*>/g)].map(([tag]) => tag).at(-1);
   assert.match(locked, /aria-pressed="true"/);
-  assert.match(locked, /title="Unlock: show this strip only in a subagent or side chat"/);
+  assert.match(locked, /title="解锁：只在子 Agent 或侧聊里显示这一条"/);
   assert.ok(render("b").lastIndexOf("<button") > render("b").indexOf('class="tabbar-scroll"'));
 });
 
-test("locked on the main agent, the Main agent chip is the current one", () => {
+test("locked on the main agent, the 主 Agent chip is the current one", () => {
   const buttons = [...render("main", true).matchAll(/<button[^>]*>/g)].map(([tag]) => tag);
   assert.deepEqual(buttons.map((tag) => /aria-current="true"/.test(tag)), [true, false, false, false, false]);
   assert.deepEqual(buttons.map((tag) => /tabindex="0"/.test(tag)), [true, false, false, false, false]);
-  assert.match(buttons[0], /title="Main agent"/);
+  assert.match(buttons[0], /title="主 Agent"/);
 });

@@ -4,6 +4,7 @@ import test from "node:test";
 import { createJiti } from "jiti";
 
 const jiti = createJiti(import.meta.url, { tsconfigPaths: true });
+const { zhCNLocale } = await jiti.import("@/lib/i18n/messages/zh-CN.ts");
 const {
   MCP_SIGN_IN_BLOCK_KEYS,
   MCP_SIGN_IN_FAILURE_KEYS,
@@ -28,8 +29,7 @@ const {
   postMcpSignIn,
 } = await jiti.import("./mcp-sign-in-helpers.ts");
 const { MCP_SIGN_IN_SUMMARY_KEYS, MCP_TEST_SUMMARY_KEYS, mcpTestSummaryKey } = await jiti.import("./mcp-config-helpers.ts");
-const { enLocale } = await jiti.import("@/lib/i18n/messages/en.ts");
-const messages = enLocale.messages;
+const messages = zhCNLocale.messages;
 const source = await readFile(new URL("./mcp-sign-in-helpers.ts", import.meta.url), "utf8");
 const apiTypesSource = await readFile(new URL("../lib/api-types.ts", import.meta.url), "utf8");
 

@@ -20,11 +20,16 @@ server as a child process, then loads its URL:
   the `pi-web` command runs, which in turn spawns `next start`. Next and
   node-pty load files by real path, which is why `electron-builder.yml` sets
   `asar: false`.
-- **Development** (`npm run desktop`): the repo root is `appRoot`. A production
-  build is used when `.next/BUILD_ID` exists; otherwise (and with
-  `PI_WEB_DESKTOP_DEV=1`) it runs `next dev`, so no build is needed to try the
-  shell. `PI_WEB_DESKTOP_URL=http://127.0.0.1:30141 npm run desktop` instead
-  attaches the window to an already running server (`npm run dev`).
+- **Development** (`npm run desktop`): `bin/desktop.js` serves the frontend the
+  source currently says, so the window never shows a previous build. When
+  `.next` has no build, or a file under `app/`, `components/`, `hooks/`, `lib/`
+  or one of the build configs is newer than its `BUILD_ID`, it runs
+  `next build --webpack` before opening the window; an unchanged tree reuses the
+  build and starts straight away. The build-free paths stay: with
+  `PI_WEB_DESKTOP_DEV=1` the shell runs `next dev`, and
+  `PI_WEB_DESKTOP_URL=http://127.0.0.1:30141 npm run desktop` attaches the window
+  to an already running server (`npm run dev`). Tests (`*.test.mjs`) and
+  `public/` do not trigger a rebuild: Next serves the latter from disk.
 
 The port is the first free one from `PI_WEB_DESKTOP_PORT` (default 30141), so a
 second instance does not fight over it; the single-instance lock means a second

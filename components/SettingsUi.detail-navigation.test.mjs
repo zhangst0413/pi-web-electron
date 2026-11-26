@@ -22,7 +22,7 @@ const splitView = (navigation) => renderToStaticMarkup(navigation
   : h(ConfigSplitView, null, "rows"));
 const navigation = (detailOpen) => ({ detailOpen, openDetail: noop, closeDetail: noop, reportDetailTitle: noop });
 
-test("inside Settings a split view says which pane a phone shows; elsewhere it stacks as before", () => {
+test("inside 设置 a split view says which pane a phone shows; elsewhere it stacks as before", () => {
   assert.equal(splitView(null), '<div class="config-split-view">rows</div>');
   assert.equal(splitView(navigation(false)), '<div class="config-split-view" data-pane="list">rows</div>');
   assert.equal(splitView(navigation(true)), '<div class="config-split-view" data-pane="detail">rows</div>');
@@ -38,7 +38,7 @@ test("a row or the add button opens the detail unless its handler prevented that
   }
 });
 
-test("a phone's Settings levels live in the history: Back goes up one, closing drops them", () => {
+test("a phone's 设置 levels live in the history: 返回 goes up one, closing drops them", () => {
   const hook = panelSource.match(/function usePhoneSettingsLevel[\s\S]*?\n\}\n/)?.[0] ?? "";
   // The entry keeps Next's router state and the URL.
   assert.match(hook, /window\.history\.pushState\(window\.history\.state, ""\)/);

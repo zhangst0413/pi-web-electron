@@ -16,7 +16,7 @@ export function interpolateMessage(message: string, params: TranslationParams = 
 }
 
 /**
- * 从当前语言和英语语言包中解析消息。
+ * 从当前语言的消息字典中解析消息。
  * @param locale 当前语言
  * @param key 翻译 key
  * @param messages 各语言的消息字典
@@ -29,7 +29,7 @@ export function translateMessage(
   messages: MessagesByLocale,
   params: TranslationParams = {},
 ): string {
-  const message = messages[locale]?.[key] ?? messages.en?.[key];
+  const message = messages[locale]?.[key];
   if (message === undefined) {
     if (process.env.NODE_ENV !== "production") console.warn(`[i18n] Missing translation: ${key}`);
     return key;
@@ -77,15 +77,13 @@ export function formatUpdatedTime(timestamp: number, locale: Locale, now = new D
 }
 
 const SHORT_TIME_UNITS: Record<Locale, { now: string; minute: string; hour: string; day: string; week: string; month: string; year: string }> = {
-  en: { now: "now", minute: "m", hour: "h", day: "d", week: "w", month: "mo", year: "y" },
   "zh-CN": { now: "刚刚", minute: "分", hour: "小时", day: "天", week: "周", month: "个月", year: "年" },
-  "zh-TW": { now: "剛剛", minute: "分", hour: "小時", day: "天", week: "週", month: "個月", year: "年" },
 };
 
 /**
  * 侧边栏右侧一列使用的紧凑相对时间（"5m"、"3小时"）。
  * @param date 要格式化的时间
- * @param locale 当前语言（未知语言按英语）
+ * @param locale 当前语言（未知语言按简体中文）
  * @param now 用于测试或特殊场景的当前时间
  * @returns 紧凑的相对时间文本；未来时间按“刚刚”，无效时间为空字符串
  */
@@ -93,7 +91,7 @@ export function formatShortRelativeTime(date: Date | string, locale: Locale, now
   const target = date instanceof Date ? date : new Date(date);
   const elapsedMs = now.getTime() - target.getTime();
   if (Number.isNaN(elapsedMs)) return "";
-  const units = Object.hasOwn(SHORT_TIME_UNITS, locale) ? SHORT_TIME_UNITS[locale] : SHORT_TIME_UNITS.en;
+  const units = Object.hasOwn(SHORT_TIME_UNITS, locale) ? SHORT_TIME_UNITS[locale] : SHORT_TIME_UNITS["zh-CN"];
   const elapsed = Math.max(0, elapsedMs);
   const minutes = Math.floor(elapsed / 60_000);
   if (minutes < 1) return units.now;

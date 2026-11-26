@@ -62,7 +62,7 @@ test("the fixture stands in for the whole hook module", async () => {
 
 test("the tabs layout renders its tabs, no brand and no files section header", () => {
   const html = render({ selectedCwd: "/work/alpha", onOpenTerminal: noop });
-  assert.match(html, /^<div class="session-sidebar" style="--sidebar-files-height:320px"><div class="sidebar-header"><div class="sidebar-tabs-list" role="tablist" aria-label="Sidebar view">/);
+  assert.match(html, /^<div class="session-sidebar" style="--sidebar-files-height:320px"><div class="sidebar-header"><div class="sidebar-tabs-list" role="tablist" aria-label="侧边栏视图">/);
   assert.equal((html.match(/role="tab"/g) ?? []).length, 2);
   assert.doesNotMatch(html, /sidebar-brand|sidebar-files-section|sidebar-files-keys|sidebar-files-changes|is-files-below/);
   // Both panels are tab panels; the files' is hidden behind its tab.
@@ -75,19 +75,19 @@ test("the tabs layout renders its tabs, no brand and no files section header", (
 
 test("the files tab's keys: the folder's four, then the tree's two views, always the same", () => {
   const row = actionsRow(render({ selectedCwd: "/work/alpha", onOpenTerminal: noop }));
-  assert.match(row, /^<div class="sidebar-files-actions" role="group" aria-label="File actions">/);
+  assert.match(row, /^<div class="sidebar-files-actions" role="group" aria-label="文件操作">/);
   // The changes view is there without changes too, disabled, and its count
   // is the tab's.
   assert.deepEqual(keyLabels(row), [
-    "Open workspace terminal",
-    "Open in file manager",
-    "Upload files to project root",
-    "Refresh file list",
-    "Show ignored files pressed=false",
-    "0 changed files (disabled) pressed=false",
+    "打开工作区终端",
+    "在文件管理器中打开",
+    "将文件上传到项目根目录",
+    "刷新文件列表",
+    "显示被忽略的文件 pressed=false",
+    "0 个变更文件 (disabled) pressed=false",
   ]);
   // The tree's views start at the right end.
-  assert.match(row, /title="Show ignored files" aria-label="Show ignored files" aria-pressed="false" class="sidebar-tool-button sidebar-files-views-start"/);
+  assert.match(row, /title="显示被忽略的文件" aria-label="显示被忽略的文件" aria-pressed="false" class="sidebar-tool-button sidebar-files-views-start"/);
   assert.equal((row.match(/sidebar-files-views-start/g) ?? []).length, 1);
   // Their icons stay 14px here (the section header row's are 13px).
   assert.deepEqual([...row.matchAll(/<svg width="(\d+)" height="(\d+)"/g)].map((match) => `${match[1]}x${match[2]}`), Array(6).fill("14x14"));
@@ -95,11 +95,11 @@ test("the files tab's keys: the folder's four, then the tree's two views, always
   // Without a terminal (no onOpenTerminal) the other five stay; the files
   // tab leaves it out where the row below the sessions disables it.
   assert.deepEqual(keyLabels(actionsRow(render({ selectedCwd: "/work/alpha" }))), [
-    "Open in file manager",
-    "Upload files to project root",
-    "Refresh file list",
-    "Show ignored files pressed=false",
-    "0 changed files (disabled) pressed=false",
+    "在文件管理器中打开",
+    "将文件上传到项目根目录",
+    "刷新文件列表",
+    "显示被忽略的文件 pressed=false",
+    "0 个变更文件 (disabled) pressed=false",
   ]);
 
   // Without a folder there is nothing to act on: no row.

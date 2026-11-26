@@ -281,7 +281,7 @@ test("previews completed Mermaid diagrams by default", () => {
   const html = renderMarkdown("```mermaid\ngraph TD\n  A --> B\n```");
 
   assert.match(html, /mermaid-block-loading/);
-  assert.match(html, />Source</);
+  assert.match(html, />源代码</);
   assert.doesNotMatch(html, /A --&gt; B/);
 });
 
@@ -289,7 +289,7 @@ test("keeps Mermaid source visible while the response is streaming", () => {
   const html = renderMarkdown("```mermaid\ngraph TD\n  A --> B\n```", { isStreaming: true });
 
   assert.doesNotMatch(html, /mermaid-block-loading/);
-  assert.match(html, />Preview</);
+  assert.match(html, />预览</);
   assert.match(html, /A --&gt; B/);
 });
 
@@ -297,10 +297,10 @@ test("opens markdown images in the shared image preview", () => {
   const localHtml = renderMarkdown("![chart](docs/tmp/chart.png)");
   const remoteHtml = renderMarkdown("![logo](https://example.com/logo.png)");
 
-  assert.match(localHtml, /<button[^>]+aria-label="Preview image: chart"[^>]*>/);
+  assert.match(localHtml, /<button[^>]+aria-label="预览图片: chart"[^>]*>/);
   assert.match(localHtml, /<img[^>]+src="\/api\/files\/home\/me\/project\/docs\/tmp\/chart\.png\?type=read"/);
   assert.match(localHtml, /<img[^>]+alt="chart"/);
-  assert.match(remoteHtml, /<button[^>]+aria-label="Preview image: logo"[^>]*>/);
+  assert.match(remoteHtml, /<button[^>]+aria-label="预览图片: logo"[^>]*>/);
   assert.match(remoteHtml, /<img[^>]+src="https:\/\/example\.com\/logo\.png"/);
 });
 
@@ -319,8 +319,8 @@ test("keeps linked markdown images as links instead of nested preview buttons", 
 test("uses a generic preview label when a markdown image has no alt text", () => {
   const html = renderMarkdown("![](https://example.com/shot.png)");
 
-  assert.match(html, /<button[^>]+aria-label="Preview image"[^>]*>/);
-  assert.doesNotMatch(html, /Preview image:/);
+  assert.match(html, /<button[^>]+aria-label="预览图片"[^>]*>/);
+  assert.doesNotMatch(html, /预览图片:/);
 });
 
 test("plays a markdown audio or video file inline instead of showing a broken image", () => {
@@ -343,7 +343,7 @@ test("plays a markdown audio or video file inline instead of showing a broken im
   assert.match(linkedHtml, /<a [^>]*href="https:\/\/example\.com\/demo"[^>]*><video [^>]*src="\/api\/files\/home\/me\/project\/out\/demo\.webm\?type=read"[^>]*><\/video><\/a>/);
 
   // Images keep their preview.
-  assert.match(renderMarkdown("![chart](out/chart.png)"), /<button[^>]+aria-label="Preview image: chart"/);
+  assert.match(renderMarkdown("![chart](out/chart.png)"), /<button[^>]+aria-label="预览图片: chart"/);
 });
 
 test("keeps CJK prose out of an autolinked URL", () => {
@@ -444,7 +444,7 @@ test("leaves code and math line endings alone when keeping line breaks", () => {
   assert.match(emphasis, /<em>one<br\/>two<\/em>/);
 });
 
-test("display math gets a Copy button for its LaTeX source; inline math does not", () => {
+test("display math gets a 复制 button for its LaTeX source; inline math does not", () => {
   const copyButtons = (html) => (html.match(/markdown-math-copy/g) ?? []).length;
   const markdown = "$$\n\\frac{a}{b} < c\n$$\n\n```math\na^2\n```\n\nInline $x$ and $$y$$ stay plain.";
   for (const props of [{}, { onNavigateLink() {} }, { isStreaming: true }]) {

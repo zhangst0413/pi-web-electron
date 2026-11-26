@@ -3,11 +3,11 @@ import test from "node:test";
 import { createJiti } from "jiti";
 
 const jiti = createJiti(import.meta.url, { tsconfigPaths: true });
+const { zhCNLocale } = await jiti.import("@/lib/i18n/messages/zh-CN.ts");
 const state = await jiti.import("./debug-panel-state.ts");
-const { enLocale } = await jiti.import("@/lib/i18n/messages/en.ts");
 const { interpolateMessage } = await jiti.import("@/lib/i18n/format.ts");
 
-const messages = enLocale.messages;
+const messages = zhCNLocale.messages;
 /** English, and a missing key fails the test instead of printing itself. */
 const t = (key, params) => {
   assert.equal(typeof messages[key], "string", `missing translation ${key}`);
@@ -57,22 +57,22 @@ function snapshot(extra = {}) {
 
 test("durations read in the panel's units and in a row's single unit", () => {
   assert.equal(state.formatDebugDuration(350.7, t), "350 ms");
-  assert.equal(state.formatDebugDuration(42_900, t), "42s");
-  assert.equal(state.formatDebugDuration(8 * MINUTE + 5 * SECOND, t), "8m 05s");
-  assert.equal(state.formatDebugDuration(2 * HOUR + 3 * MINUTE, t), "2h 03m");
-  assert.equal(state.formatDebugDuration(3 * 24 * HOUR + 4 * HOUR, t), "3d 4h");
+  assert.equal(state.formatDebugDuration(42_900, t), "42秒");
+  assert.equal(state.formatDebugDuration(8 * MINUTE + 5 * SECOND, t), "8分05秒");
+  assert.equal(state.formatDebugDuration(2 * HOUR + 3 * MINUTE, t), "2小时03分");
+  assert.equal(state.formatDebugDuration(3 * 24 * HOUR + 4 * HOUR, t), "3天4小时");
   assert.equal(state.formatDebugDuration(-5, t), "0 ms", "never negative");
   assert.equal(state.formatDebugDuration(Number.NaN, t), "0 ms");
 
-  assert.equal(state.formatShortDebugDuration(42_900, t), "42s");
-  assert.equal(state.formatShortDebugDuration(8 * MINUTE + 59 * SECOND, t), "8m");
-  assert.equal(state.formatShortDebugDuration(5 * HOUR, t), "5h");
-  assert.equal(state.formatShortDebugDuration(50 * HOUR, t), "2d");
+  assert.equal(state.formatShortDebugDuration(42_900, t), "42秒");
+  assert.equal(state.formatShortDebugDuration(8 * MINUTE + 59 * SECOND, t), "8分");
+  assert.equal(state.formatShortDebugDuration(5 * HOUR, t), "5小时");
+  assert.equal(state.formatShortDebugDuration(50 * HOUR, t), "2天");
 
-  assert.equal(state.formatAgo(12 * SECOND, t), "12s ago");
-  assert.equal(state.formatCountdown(3 * SECOND, t), "in 3s");
-  assert.equal(state.formatCountdown(0, t), "due");
-  assert.equal(state.formatCountdown(-4 * SECOND, t), "due");
+  assert.equal(state.formatAgo(12 * SECOND, t), "12秒前");
+  assert.equal(state.formatCountdown(3 * SECOND, t), "3秒后");
+  assert.equal(state.formatCountdown(0, t), "已到期");
+  assert.equal(state.formatCountdown(-4 * SECOND, t), "已到期");
   assert.equal(state.formatBytes(512), "512 B");
   assert.equal(state.formatBytes(1536), "1.5 KB");
   assert.equal(state.shortDebugId("0123456789abcdef"), "01234567");
@@ -261,43 +261,43 @@ test("a quiet page and server raise no issue", () => {
 
 const ISSUE_CASES = [
   ["the poll timed out", { server: { failure: { kind: "timeout", status: null, at: LOCAL - SECOND } } },
-    { id: "poll", tone: "warning", text: `${t("debug.poll.timeout")} · 1s ago` }],
+    { id: "poll", tone: "warning", text: `${t("debug.poll.timeout")} · 1秒前` }],
   ["the poll failed", { server: { failure: { kind: "http", status: 502, at: LOCAL - SECOND } } },
-    { id: "poll", tone: "error", text: "The server answered HTTP 502 · 1s ago" }],
+    { id: "poll", tone: "error", text: "服务器返回 HTTP 502 · 1秒前" }],
   ["the poll is slow", { page: { pollInFlightSince: LOCAL - 2500 } },
-    { id: "poll", tone: "warning", text: "No answer yet after 2s" }],
+    { id: "poll", tone: "warning", text: "已等待 2秒，尚无应答" }],
   ["the chat's reader threw", { page: { client: null, clientFailed: true } },
     { id: "reader", tone: "error", text: t("debug.stream.readerFailed") }],
   ["the running poll failed", { page: { runningPoll: { count: 4, failures: 1, last: { at: LOCAL - 2 * SECOND, durationMs: 30, outcome: "error", httpStatus: 503 } } } },
-    { id: "runningPoll", tone: "warning", text: "Sidebar poll · failed · HTTP 503 · 2s ago" }],
+    { id: "runningPoll", tone: "warning", text: "侧边栏轮询 · 失败 · HTTP 503 · 2秒前" }],
   ["five of six connections", { page: { sources: [1, 2, 3, 4, 5].map((id) => source(id, id === 1 ? "agent" : "terminal", id === 1 ? "s1" : "/w")) } },
-    { id: "pool", tone: "warning", text: "This page holds 5 of the six connections HTTP/1.1 allows per origin, for all tabs" }],
+    { id: "pool", tone: "warning", text: "本页面占用了 HTTP/1.1 每个源六个连接（所有标签页共用）中的 5 个" }],
   ["six of six connections", { page: { sources: [1, 2, 3, 4, 5, 6].map((id) => source(id, id === 1 ? "agent" : "terminal", id === 1 ? "s1" : "/w")) } },
-    { id: "pool", tone: "error", text: "This page holds 6 of the six connections HTTP/1.1 allows per origin, for all tabs" }],
+    { id: "pool", tone: "error", text: "本页面占用了 HTTP/1.1 每个源六个连接（所有标签页共用）中的 6 个" }],
   ["a source keeps failing to connect", { page: { sources: [source(1, "agent", "s1"), source(2, "file-watch", "/work/app/a.ts", { state: "connecting", errors: 2 })] } },
-    { id: "source", tone: "warning", text: "File watch · a.ts · connecting · opened 1× · 2 errors" }],
+    { id: "source", tone: "warning", text: "文件监视 · a.ts · 连接中 · 打开 1 次 · 2 次错误" }],
   ["the stream's last error while it is down", { connection: { state: "retrying", lastError: { reason: "stale", message: null, at: LOCAL - 4 * SECOND }, retryDueAt: LOCAL + 3 * SECOND } },
-    { id: "stream", tone: "error", text: "stale (watchdog) · 4s ago · retry in 3s" }],
+    { id: "stream", tone: "error", text: "无响应（看门狗） · 4秒前 · 3秒后重试" }],
   ["the stream retries", { connection: { state: "retrying", retryDueAt: LOCAL + 3 * SECOND } },
-    { id: "stream", tone: "warning", text: "retrying · retry in 3s" }],
+    { id: "stream", tone: "warning", text: "重试中 · 3秒后重试" }],
   ["the stream is silent for half the watchdog", { connection: { lastSeenAt: LOCAL - 40 * SECOND } },
-    { id: "streamSilent", tone: "warning", text: "Last data 40s ago" }],
+    { id: "streamSilent", tone: "warning", text: "上次距今 40秒前" }],
   ["the stream is silent past the watchdog", { connection: { lastSeenAt: LOCAL - 80 * SECOND } },
-    { id: "streamSilent", tone: "error", text: "Last data 1m 20s ago" }],
-  ["the server has no stream from this page", { detail: { eventStreams: [] } },
+    { id: "streamSilent", tone: "error", text: "上次距今 1分20秒前" }],
+  ["the server has no stream from 本页面", { detail: { eventStreams: [] } },
     { id: "noServerStream", tone: "warning", text: t("debug.issue.noServerStream") }],
   ["a stream dropped events", { detail: { eventStreams: [...detail().eventStreams, { holder: OTHER, openedAt: SERVER, connectedAt: SERVER, lastWriteAt: null, droppedEvents: 3, queuedBytes: 0 }] } },
-    { id: "dropped", tone: "warning", text: "other page page-oth · 3 dropped" }],
+    { id: "dropped", tone: "warning", text: "其他页面 page-oth · 丢弃 3" }],
   ["the lease waits for an answer", { lease: { inFlightSince: LOCAL - 2 * SECOND } },
-    { id: "lease", tone: "warning", text: "Lease · waiting 2s for an answer" }],
+    { id: "lease", tone: "warning", text: "Lease · 已等待应答 2秒" }],
   ["the lease failed", { lease: { last: { at: LOCAL - 3 * SECOND, durationMs: 9, outcome: "error", httpStatus: 500, reply: null } } },
-    { id: "lease", tone: "error", text: "Lease · failed · HTTP 500 · 3s ago" }],
+    { id: "lease", tone: "error", text: "Lease · 失败 · HTTP 500 · 3秒前" }],
   ["the lease went unanswered", { lease: { last: { at: LOCAL - 12 * SECOND, durationMs: 5000, outcome: "unanswered", httpStatus: null, reply: null } } },
-    { id: "lease", tone: "warning", text: "Lease · unanswered · 12s ago" }],
+    { id: "lease", tone: "warning", text: "Lease · 无应答 · 12秒前" }],
   ["extensions failed to bind", { detail: { wrapper: wrapper({ extensions: "failed" }) } },
-    { id: "extensions", tone: "error", text: "Extensions · failed" }],
+    { id: "extensions", tone: "error", text: "扩展 · 失败" }],
   ["a liveness provider threw", { detail: { providers: [{ name: "keepalive", active: "error", byFile: false }, { name: "fine", active: true, byFile: false }] } },
-    { id: "provider", tone: "error", text: "keepalive · error" }],
+    { id: "provider", tone: "error", text: "keepalive · 错误" }],
   ["an MCP server did not connect", {
     detail: {
       mcp: {
@@ -305,7 +305,7 @@ const ISSUE_CASES = [
         servers: [{ name: "github", scope: "global", state: "failed", hasError: false, released: false }, { name: "ok", scope: "global", state: "connected", hasError: false, released: false }],
       },
     },
-  }, { id: "mcp", tone: "error", text: "MCP github · Did not connect" }],
+  }, { id: "mcp", tone: "error", text: "MCP github · 未能连接" }],
 ];
 
 for (const [name, input, expected] of ISSUE_CASES) {
@@ -401,7 +401,7 @@ test("errors come first, then warnings, each in the catalog's order", () => {
     detail: { providers: [{ name: "p", active: "error", byFile: false }] },
   });
   assert.deepEqual(issues.map((issue) => `${issue.tone}:${issue.id}`), ["error:lease", "error:provider", "warning:poll", "warning:streamSilent"]);
-  assert.equal(issues[0].text, "Lease · failed · 3s ago", "no HTTP status, none said");
+  assert.equal(issues[0].text, "Lease · 失败 · 3秒前", "no HTTP status, none said");
 });
 
 test("the verdict: reading, paused, issues, waiting or OK", () => {
@@ -418,7 +418,7 @@ test("the verdict: reading, paused, issues, waiting or OK", () => {
 
 // ── This page's sources ──
 
-test("the meter: this page's sources against HTTP/1.1's six, the chat's stream apart from a grace one", () => {
+test("the meter: 本页面's sources against HTTP/1.1's six, the chat's stream apart from a grace one", () => {
   const sources = [
     source(4, "terminal", "/work/app"),
     source(1, "agent", "s1"),
@@ -435,7 +435,7 @@ test("the meter: this page's sources against HTTP/1.1's six, the chat's stream a
   ], "oldest first");
   assert.deepEqual([pool.mine, pool.overflow, pool.tone], [4, 0, "dim"]);
   assert.deepEqual(pool.kinds, { agent: 2, "file-watch": 1, terminal: 1 });
-  assert.deepEqual(state.debugPoolKindCounts(pool, t), ["Agent 2", "File watch 1", "Terminal 1"]);
+  assert.deepEqual(state.debugPoolKindCounts(pool, t), ["Agent 2", "文件监视 1", "终端 1"]);
 
   const many = (count) => Array.from({ length: count }, (_, index) => source(index + 1, "file-watch", "/w/f"));
   assert.equal(state.poolSlots(many(5), "http/1.1", null).tone, "warning");
@@ -445,7 +445,7 @@ test("the meter: this page's sources against HTTP/1.1's six, the chat's stream a
   const full = state.poolSlots(many(8), "http/1.1", null);
   assert.deepEqual([full.slots.length, full.mine, full.overflow, full.tone], [6, 8, 2, "error"]);
   assert.deepEqual(full.kinds, { agent: 0, "file-watch": 8, terminal: 0 }, "those past the six counted too");
-  assert.deepEqual(state.debugPoolKindCounts(full, t), ["File watch 8"], "a kind it holds none of is left out");
+  assert.deepEqual(state.debugPoolKindCounts(full, t), ["文件监视 8"], "a kind it holds none of is left out");
 
   const h2 = state.poolSlots(many(8), "h2", null);
   assert.deepEqual([h2.cap, h2.slots.length, h2.overflow, h2.tone, h2.protocol], [null, 8, 0, "dim", "h2"]);
@@ -462,7 +462,7 @@ test("a source's name and tooltip", () => {
   assert.equal(state.sourceDisplayLabel({ kind: "terminal", label: "/work/app/" }), "app");
   assert.equal(state.sourceDisplayLabel({ kind: "terminal", label: null }), "—");
   const [slot] = state.poolSlots([source(1, "file-watch", "/work/app/app.tsx", { createdAt: LOCAL - 4 * MINUTE - 12 * SECOND })], "http/1.1", null).slots;
-  assert.equal(state.debugSlotTitle(slot, LOCAL, t), "File watch · app.tsx · open · opened 1× · 0 errors · 4m 12s ago");
+  assert.equal(state.debugSlotTitle(slot, LOCAL, t), "文件监视 · app.tsx · 已打开 · 打开 1 次 · 0 次错误 · 4分12秒前");
   assert.equal(state.pageAgentStreamCount([source(1, "agent", "s1"), source(2, "agent", "s1"), source(3, "agent", "s2"), source(4, "file-watch", "s1")], "s1"), 2);
 });
 
@@ -530,10 +530,10 @@ test("MCP servers, holders and status slots", () => {
   assert.equal(state.debugHolderTone(MINE, MINE), "accent");
   assert.equal(state.debugHolderTone(OTHER, MINE), "muted");
   assert.equal(state.debugHolderTone(null, MINE), "dim");
-  assert.equal(state.debugHolderLabel(MINE, MINE, t), "this page page-min");
-  assert.equal(state.debugHolderLabel(null, MINE, t), "no page id");
+  assert.equal(state.debugHolderLabel(MINE, MINE, t), "本页面 page-min");
+  assert.equal(state.debugHolderLabel(null, MINE, t), "无页面 ID");
   assert.deepEqual(state.thisPageFirst([{ holder: OTHER }, { holder: null }, { holder: MINE }], MINE).map((item) => item.holder), [MINE, OTHER, null]);
-  assert.equal(state.holderGroupLabel("SSE", [OTHER, MINE, null], MINE, t), "SSE: 3 (this page 1, other page 2)");
+  assert.equal(state.holderGroupLabel("SSE", [OTHER, MINE, null], MINE, t), "SSE: 3 (本页面 1, 其他页面 2)");
 
   assert.equal(state.debugStatusState({ awaitingInput: true, running: true, state: "alive" }), "awaiting", "as in the sidebar");
   assert.equal(state.debugStatusState({ awaitingInput: false, running: true, state: "closing" }), "running");
@@ -544,10 +544,10 @@ test("MCP servers, holders and status slots", () => {
 test("a session row's tooltip names everything the server holds for it", () => {
   assert.equal(
     state.debugSessionTitle(summary("root", { eventStreams: 1, running: true }), 8 * MINUTE + 30 * SECOND, t),
-    "root · alive · running · 1 event streams · reap countdown 8m",
+    "root · 存活 · 运行中 · 1 个 SSE · 回收倒计时 8分",
   );
-  assert.equal(state.debugSessionTitle(summary("forced", { forcedByStop: true, starts: 3 }), 30 * SECOND, t), "forced · alive · closes in 30s (after Stop) · started 3×");
-  assert.equal(state.debugSessionTitle(summary("sub-1", { subagent: true, eventStreams: 2, providers: 1 }), null, t), "sub-1 (subagent) · alive · 2 event streams · 1 liveness providers");
+  assert.equal(state.debugSessionTitle(summary("forced", { forcedByStop: true, starts: 3 }), 30 * SECOND, t), "forced · 存活 · 30秒后关闭（已停止） · 启动 3 次");
+  assert.equal(state.debugSessionTitle(summary("sub-1", { subagent: true, eventStreams: 2, providers: 1 }), null, t), "sub-1（子 Agent） · 存活 · 2 个 SSE · 1 个存活提供者");
 });
 
 // ── Sessions on the server ──
@@ -802,13 +802,13 @@ test("an answer that lands after the panel closed reaches nothing", async () => 
 test("Escape closes the panel only when nothing nearer took it and no dialog is open", () => {
   const key = (extra = {}) => ({ key: "Escape", defaultPrevented: false, isComposing: false, keyCode: 27, ...extra });
   assert.equal(state.shouldCloseDebugPanelOnEscape(key(), false), true);
-  assert.equal(state.shouldCloseDebugPanelOnEscape(key({ defaultPrevented: true }), false), false, "a menu or ChatInput's Stop took it");
+  assert.equal(state.shouldCloseDebugPanelOnEscape(key({ defaultPrevented: true }), false), false, "a menu or ChatInput's 停止 took it");
   // React's handlers run from `document`, before the panel's listener: one that only stopped it
   // (the sidebar's session search clearing itself) still took it.
   assert.equal(state.shouldCloseDebugPanelOnEscape(key({ cancelBubble: true }), false), false, "a nearer handler stopped it");
   assert.equal(state.shouldCloseDebugPanelOnEscape(key({ isComposing: true }), false), false);
   assert.equal(state.shouldCloseDebugPanelOnEscape(key({ keyCode: 229 }), false), false, "Safari's IME Escape");
-  assert.equal(state.shouldCloseDebugPanelOnEscape(key(), true), false, "Settings or a dialog is above");
+  assert.equal(state.shouldCloseDebugPanelOnEscape(key(), true), false, "设置 or a dialog is above");
   assert.equal(state.shouldCloseDebugPanelOnEscape(key({ key: "Enter" }), false), false);
 });
 
@@ -827,12 +827,12 @@ test("the Escape that closes the panel says whether focus was inside it", () => 
     return event;
   };
 
-  assert.equal(escape().defaultPrevented, true, "taken, so the window's Stop skips it");
+  assert.equal(escape().defaultPrevented, true, "taken, so the window's 停止 skips it");
   doc.activeElement = composer;
   escape();
   doc.activeElement = null;
   escape();
-  assert.deepEqual(closes, [true, false, false], "only focus inside the panel goes back to the Debug button");
+  assert.deepEqual(closes, [true, false, false], "only focus inside the panel goes back to the 调试 button");
 
   doc.dialog = element("settings");
   assert.equal(escape().defaultPrevented, false, "a dialog above keeps it");
@@ -849,10 +849,10 @@ test("the Escape that closes the panel says whether focus was inside it", () => 
 });
 
 test("codes the server sends read as words where the panel knows them, else as they came", () => {
-  assert.equal(state.translateDebugCode("queued", state.DEBUG_RUN_STATUS_KEYS, t), "Queued");
-  assert.equal(state.translateDebugCode("running", state.DEBUG_RUN_STATUS_KEYS, t), "Running");
-  assert.equal(state.translateDebugCode("unknown", state.DEBUG_RUN_STATUS_KEYS, t), "unknown");
-  assert.equal(state.translateDebugCode("set_tools", state.DEBUG_CLOSE_REASON_KEYS, t), "tools changed");
+  assert.equal(state.translateDebugCode("queued", state.DEBUG_RUN_STATUS_KEYS, t), "排队中");
+  assert.equal(state.translateDebugCode("running", state.DEBUG_RUN_STATUS_KEYS, t), "运行中");
+  assert.equal(state.translateDebugCode("unknown", state.DEBUG_RUN_STATUS_KEYS, t), "未知");
+  assert.equal(state.translateDebugCode("set_tools", state.DEBUG_CLOSE_REASON_KEYS, t), "工具已更改");
   assert.equal(state.translateDebugCode("paused", state.DEBUG_RUN_STATUS_KEYS, t), "paused", "a status newer than the map");
   assert.equal(state.translateDebugCode("toString", state.DEBUG_RUN_STATUS_KEYS, t), "toString", "only the map's own keys");
 });

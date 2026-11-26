@@ -6,11 +6,11 @@ const jiti = createJiti(import.meta.url, {
   jsx: { runtime: "automatic" },
   tsconfigPaths: true,
 });
+const { zhCNLocale } = await jiti.import("@/lib/i18n/messages/zh-CN.ts");
 const { BranchNavigator, buildActivePath, compressChain, hasSessionBranches, selectTopLevelBranches } = await jiti.import("./BranchNavigator.tsx");
 const React = await jiti.import("react");
 const { renderToStaticMarkup } = await jiti.import("react-dom/server");
 const { I18nProvider } = await jiti.import("@/hooks/useI18n");
-const { enLocale } = await jiti.import("@/lib/i18n/messages/en.ts");
 
 const msg = (id, role, text) => ({ type: "message", id, parentId: null, timestamp: "t", message: { role, content: text } });
 const info = (id) => ({ type: "session_info", id, parentId: null, timestamp: "t", name: "x" });
@@ -195,7 +195,7 @@ test("a locked navigator keeps the tree readable but offers no branch to switch 
       locked,
     }),
   ));
-  const lockedNotice = enLocale.messages["i18n.branchesLockedWhileRunning"].replace("'", "&#x27;");
+  const lockedNotice = zhCNLocale.messages["i18n.branchesLockedWhileRunning"].replace("'", "&#x27;");
 
   const unlocked = render(false);
   assert.match(unlocked, /second answer/);
