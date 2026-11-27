@@ -97,10 +97,28 @@ textarea {
 }
 
 .section-title {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
 	padding: 4px 2px;
 	font-size: 11px;
 	letter-spacing: 0.08em;
 	color: #7b8290;
+}
+
+.icon-button {
+	border: 0;
+	background: none;
+	color: #8b93a3;
+	cursor: pointer;
+	line-height: 1;
+	padding: 2px 4px;
+	border-radius: 4px;
+}
+
+.icon-button:hover {
+	background: #2a2d34;
+	color: #e6e6e8;
 }
 
 .workspace-list {
@@ -157,11 +175,8 @@ textarea {
 	color: #e6e6e8;
 }
 
-.add-workspace {
-	border-style: dashed;
-	background: none;
-	color: #9aa1ae;
-	text-align: left;
+.workspace-action.always {
+	visibility: visible;
 }
 
 .link {
@@ -193,10 +208,6 @@ textarea {
 	background: #3b6cf6;
 	border-color: #3b6cf6;
 	color: #fff;
-}
-
-.button.new {
-	width: 100%;
 }
 
 .button.stop {

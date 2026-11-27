@@ -28,7 +28,7 @@ npm run desktop:dist # 安装包 release/pi harness Setup <version>.exe
 ```
 
 首次启动会弹出设置，填入 opencode-go API Key 和模型 ID（默认 `deepseek-v4.1-flash`）。
-侧边栏「工作目录」里添加项目路径，点行尾的 `＋` 即可在该项目下新开会话。
+点「工作目录」标题右侧的 `＋` 添加项目路径，点每个目录行尾的 `＋` 即可在该项目下新开会话。
 
 打包脚本通过 `ELECTRON_MIRROR` / `ELECTRON_BUILDER_BINARIES_MIRROR` 使用 npmmirror，
 也可以自行覆盖这两个环境变量。

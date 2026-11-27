@@ -90,18 +90,16 @@ export default function Page() {
 		setConfig(data);
 	};
 
-	const createSession = async (cwd?: string) => {
-		const target = cwd ?? selected;
-		if (!target) return;
+	const createSession = async (cwd: string) => {
 		setNotice("");
 		const response = await fetch("/api/sessions", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ cwd: target }),
+			body: JSON.stringify({ cwd }),
 		});
 		const data = await response.json();
 		if (!response.ok) return setNotice(data.error ?? "创建会话失败");
-		setWorkspace(target);
+		setWorkspace(cwd);
 		await loadSessions();
 		setActive(data.id);
 	};
@@ -127,7 +125,12 @@ export default function Page() {
 				</div>
 
 				<div className="section">
-					<div className="section-title">工作目录</div>
+					<div className="section-title">
+						工作目录
+						<button type="button" className="icon-button" title="添加目录" onClick={addWorkspace}>
+							＋
+						</button>
+					</div>
 					<div className="workspace-list">
 						{config?.workspaces.map((dir) => (
 							<div
@@ -139,7 +142,7 @@ export default function Page() {
 								<span className="workspace-name">{baseName(dir)}</span>
 								<button
 									type="button"
-									className="workspace-action"
+									className="workspace-action always"
 									title="在此目录新建会话"
 									onClick={(event) => {
 										event.stopPropagation();
@@ -161,20 +164,8 @@ export default function Page() {
 								</button>
 							</div>
 						))}
-						<button type="button" className="button add-workspace" onClick={addWorkspace}>
-							＋ 添加目录
-						</button>
 					</div>
 				</div>
-
-				<button
-					type="button"
-					className="button new"
-					onClick={() => void createSession()}
-					disabled={!config?.apiKey || !selected}
-				>
-					＋ 新会话
-				</button>
 
 				<div className="section session-section">
 					<div className="section-title">会话</div>
