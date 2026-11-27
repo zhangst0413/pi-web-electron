@@ -267,8 +267,8 @@ The panel offers one choice, **Automatic** or **Always on**:
   connects, unless `autoEnableCodemode` is false, which the panel then says.
 - **Always on** adds `+codemode` to the global `defaultTools` through
   `/api/tools/settings`, which stays the only writer of that key and shares its
-  lock with the PowerShell switch. It applies to sessions started afterwards
-  and reloads none. It does not reach every project: a trusted project's
+  lock with Settings › General's built-in tool switches. It applies to sessions
+  started afterwards and reloads none. It does not reach every project: a trusted project's
   `.pi/settings.json` decides Code mode for its own sessions when its
   `defaultTools` holds a plain name (that list replaces the global one,
   `+codemode` included) or a `+codemode` / `-codemode` modifier (which has the

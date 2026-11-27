@@ -43,7 +43,6 @@ import {
   sideToolNames,
 } from "./side-session";
 import { SIDE_SESSION_NAME, sideChatNameFrom } from "./session-family";
-import { resolveShellTools } from "./powershell-settings";
 import { CHAT_ONLY_RESOURCE_LOADER_OPTIONS, contextFilesSystemPrompt } from "./chat-only";
 import { createExactSystemPromptExtension } from "./exact-system-prompt";
 import { createChineseSystemPromptExtension } from "./system-prompt-zh";
@@ -306,10 +305,7 @@ export function resolveActiveToolNames(
 
   const codingToolNames = new Set(CODING_TOOL_NAMES);
   const registered = new Map(session.getAllTools().map((tool) => [tool.name, tool]));
-  const selectedToolNames = resolveShellTools(
-    requested.filter((name) => codingToolNames.has(name)),
-    session.settingsManager.getDefaultTools(),
-  );
+  const selectedToolNames = requested.filter((name) => codingToolNames.has(name));
   const carriedToolNames = carry.filter((name) => {
     if (codingToolNames.has(name)) return selectedToolNames.includes(name);
     const tool = registered.get(name);
@@ -3366,7 +3362,7 @@ export async function startRpcSession(
     });
     // Here the allow-list is the point: extensions stay loaded, their tools and what
     // the parent did not have stay out of the registry.
-    if (sideChatTools) toolsOption = resolveShellTools(selectedToolNames ?? [], settingsManager.getDefaultTools());
+    if (sideChatTools) toolsOption = [...(selectedToolNames ?? [])];
     // Chat-only sessions send an exact system prompt. The prompt is resolved at prompt time through this inline
     // extension: it may read the session's context files, which exist only
     // after the session is created, so the getter is filled in below.

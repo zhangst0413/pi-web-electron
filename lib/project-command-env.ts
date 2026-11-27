@@ -189,7 +189,7 @@ export function createProjectCommandPowerShellExtension(options: { cwd: string }
     factory: (pi) => {
       pi.registerTool({
         ...createPowerShellToolDefinition(options.cwd),
-        // Active only when named (`defaultTools`, the PowerShell switch, a preset), as pi's own is (#1235).
+        // Active only when named (`defaultTools`, a preset), as pi's own is (#1235).
         defaultActive: false,
         execute(toolCallId, params, signal, onUpdate, context) {
           const executionDefinition = createPowerShellToolDefinition(options.cwd, {

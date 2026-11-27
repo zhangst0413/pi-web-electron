@@ -14,7 +14,6 @@ import {
 } from "@/hooks/useChatAppearance";
 import { useEnterSendMode, setEnterSendMode } from "@/hooks/useEnterSendMode";
 import { useFilesPlacement, setFilesPlacement } from "@/hooks/useFilesPlacement";
-import { sendAgentCommand } from "@/lib/agent-client";
 import { clearStoredDrafts } from "@/lib/draft-store";
 import type { ProjectTrustStatus, ToolSettingsResponse } from "@/lib/api-types";
 import { SETTINGS_BUILTIN_TOOLS } from "@/lib/tool-presets";
@@ -73,8 +72,6 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
   const enterSendMode = useEnterSendMode();
   const filesPlacement = useFilesPlacement();
   const [shellSettings, setShellSettings] = useState<ToolSettingsResponse | null>(null);
-  const [shellSaving, setShellSaving] = useState(false);
-  const [shellError, setShellError] = useState<string | null>(null);
   const [builtinToolsSaving, setBuiltinToolsSaving] = useState(false);
   const [builtinToolsError, setBuiltinToolsError] = useState<string | null>(null);
   const [thinkingExpanded, setThinkingExpanded] = useState(false);
@@ -117,7 +114,7 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
         if (!cancelled) setShellSettings(data);
       })
       .catch((cause) => {
-        if (!cancelled) setShellError(cause instanceof Error ? cause.message : String(cause));
+        if (!cancelled) setBuiltinToolsError(cause instanceof Error ? cause.message : String(cause));
       });
     return () => { cancelled = true; };
   }, []);
@@ -152,28 +149,6 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
       setCacheMissNoticesError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setCacheMissNoticesSaving(false);
-    }
-  };
-
-  const togglePowerShell = async (enabled: boolean) => {
-    setShellSaving(true);
-    setShellError(null);
-    try {
-      const response = await fetch("/api/tools/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled }),
-      });
-      const data = await readJsonOrThrow<ToolSettingsResponse>(response);
-      setShellSettings(data);
-      if (sessionId) {
-        await sendAgentCommand(sessionId, { type: "reload" });
-        onSessionReloaded();
-      }
-    } catch (cause) {
-      setShellError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setShellSaving(false);
     }
   };
 
@@ -367,10 +342,10 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
         <p id="settings-files-placement-description" className="settings-general-description">{t("settings.filesPlacementDescription")}</p>
       </section>
 
-      {shellSettings && (
-        <section className="settings-general-section">
-          <h3 className="settings-general-heading">{t("settings.builtinTools")}</h3>
-          <p id="settings-builtin-tools-description" className="settings-general-description">{t("settings.builtinToolsDescription")}</p>
+      <section className="settings-general-section">
+        <h3 className="settings-general-heading">{t("settings.builtinTools")}</h3>
+        <p id="settings-builtin-tools-description" className="settings-general-description">{t("settings.builtinToolsDescription")}</p>
+        {shellSettings && (
           <div className="settings-send-mode-options settings-builtin-tools" role="group" aria-label={t("settings.builtinTools")} aria-describedby="settings-builtin-tools-description">
             {SETTINGS_BUILTIN_TOOLS.map((name) => (
               <label key={name} className="settings-send-mode-option">
@@ -381,30 +356,13 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
                   onChange={(event) => void toggleBuiltinTool(name, event.target.checked)}
                   className="sr-only"
                 />
-                <span className="settings-send-mode-label">{name === "bash" && shellSettings.powerShellEnabled ? "powershell" : name}</span>
+                <span className="settings-send-mode-label">{name}</span>
               </label>
             ))}
           </div>
-          {builtinToolsError && <p role="alert" className="settings-general-error">{builtinToolsError}</p>}
-        </section>
-      )}
-
-      {shellSettings?.isWindows && (
-        <section className="settings-general-section">
-          <h3 className="settings-general-heading">{t("settings.shellTool")}</h3>
-          <p className="settings-general-description">{t("settings.shellToolDescription")}</p>
-          <div className="settings-shell-option">
-            <span>{t("settings.usePowerShell")}</span>
-            <ConfigSwitch
-              checked={shellSettings.powerShellEnabled}
-              loading={shellSaving}
-              label={t("settings.usePowerShell")}
-              onChange={(enabled) => void togglePowerShell(enabled)}
-            />
-          </div>
-          {shellError && <p role="alert" className="settings-general-error">{shellError}</p>}
-        </section>
-      )}
+        )}
+        {builtinToolsError && <p role="alert" className="settings-general-error">{builtinToolsError}</p>}
+      </section>
 
       {webAuthEnabled && (
         <section className="settings-general-section">

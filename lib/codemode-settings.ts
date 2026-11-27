@@ -7,7 +7,7 @@ import {
   readGlobalSettings,
   updateGlobalSettings,
 } from "./global-settings-file";
-import { resolveDefaultToolEntries } from "./powershell-settings";
+import { resolveDefaultToolEntries } from "./builtin-tools";
 import { PROJECT_SETTINGS_MAX_BYTES, readRegularFileText } from "./regular-file";
 
 // Code mode offers one choice (ADR 0006, "Code mode"):

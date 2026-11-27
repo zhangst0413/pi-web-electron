@@ -22,7 +22,6 @@ const jiti = createJiti(import.meta.url, {
 const { GET, PUT } = await jiti.import("./route.ts");
 
 const settingsPath = path.join(agentDir, "settings.json");
-const isWindows = process.platform === "win32";
 const DEFAULTS = ["read", "edit", "write", "bash"];
 
 function put(body, headers = { host: "localhost", "Content-Type": "application/json" }) {
@@ -37,15 +36,15 @@ test("reports and switches Code mode on every platform", async () => {
   await writeFile(settingsPath, JSON.stringify({ defaultModel: "m" }));
   const initial = await GET();
   assert.equal(initial.status, 200);
-  assert.deepEqual(await initial.json(), { isWindows, powerShellEnabled: false, builtinTools: DEFAULTS, codemode: "automatic", codemodeMode: { value: "on" }, codemodeInlineBudget: {} });
+  assert.deepEqual(await initial.json(), { builtinTools: DEFAULTS, codemode: "automatic", codemodeMode: { value: "on" }, codemodeInlineBudget: {} });
 
   const enabled = await put({ codemode: "always" });
   assert.equal(enabled.status, 200);
-  assert.deepEqual(await enabled.json(), { isWindows, powerShellEnabled: false, builtinTools: DEFAULTS, codemode: "always", codemodeMode: { value: "on" }, codemodeInlineBudget: {} });
+  assert.deepEqual(await enabled.json(), { builtinTools: DEFAULTS, codemode: "always", codemodeMode: { value: "on" }, codemodeInlineBudget: {} });
   assert.deepEqual(JSON.parse(await readFile(settingsPath, "utf8")), { defaultModel: "m", defaultTools: ["+codemode"] });
 
   const automatic = await put({ codemode: "automatic" });
-  assert.deepEqual(await automatic.json(), { isWindows, powerShellEnabled: false, builtinTools: DEFAULTS, codemode: "automatic", codemodeMode: { value: "on" }, codemodeInlineBudget: {} });
+  assert.deepEqual(await automatic.json(), { builtinTools: DEFAULTS, codemode: "automatic", codemodeMode: { value: "on" }, codemodeInlineBudget: {} });
   assert.deepEqual(JSON.parse(await readFile(settingsPath, "utf8")), { defaultModel: "m" });
 });
 
@@ -53,7 +52,7 @@ test("saves the Code mode inline budget, and null gives sessions pi's default ag
   await writeFile(settingsPath, JSON.stringify({ defaultModel: "m", codemode: { mode: "on" } }));
   const saved = await put({ codemodeInlineBudget: 1000 });
   assert.equal(saved.status, 200);
-  assert.deepEqual(await saved.json(), { isWindows, powerShellEnabled: false, builtinTools: DEFAULTS, codemode: "automatic", codemodeMode: { value: "on" }, codemodeInlineBudget: { value: 1000 } });
+  assert.deepEqual(await saved.json(), { builtinTools: DEFAULTS, codemode: "automatic", codemodeMode: { value: "on" }, codemodeInlineBudget: { value: 1000 } });
   assert.deepEqual(JSON.parse(await readFile(settingsPath, "utf8")), { defaultModel: "m", codemode: { mode: "on", inlineBudget: 1000 } });
 
   const zero = await put({ codemodeInlineBudget: 0 });
@@ -76,8 +75,6 @@ test("saves the Code mode mode, and \"on\" gives sessions pi's default again", a
   const only = await put({ codemodeMode: "only" });
   assert.equal(only.status, 200);
   assert.deepEqual(await only.json(), {
-    isWindows,
-    powerShellEnabled: false,
     builtinTools: DEFAULTS,
     codemode: "automatic",
     codemodeMode: { value: "only" },
@@ -117,7 +114,6 @@ test("saves the built-in tools, keeping the other defaultTools entries", async (
 test("rejects requests that do not name exactly one valid change, with a reason Settings › MCP translates", async () => {
   for (const body of [
     { codemode: "never" },
-    { codemode: "always", enabled: true },
     { codemode: "always", builtinTools: [] },
     { codemode: "always", codemodeInlineBudget: 1000 },
     { codemodeMode: "only", codemodeInlineBudget: 1000 },
@@ -141,12 +137,6 @@ test("rejects requests that do not name exactly one valid change, with a reason 
   assert.deepEqual([plain.status, await plain.json()], [415, { error: "Content-Type must be application/json", reason: "content-type" }]);
   const foreign = await put({ codemode: "always" }, { host: "localhost", origin: "https://evil.example", "Content-Type": "application/json" });
   assert.deepEqual([foreign.status, await foreign.json()], [403, { error: "Untrusted API request", reason: "request-denied" }]);
-});
-
-test("keeps the PowerShell switch Windows-only", { skip: isWindows }, async () => {
-  const response = await put({ enabled: true });
-  assert.equal(response.status, 404);
-  assert.equal((await response.json()).reason, "invalid-request");
 });
 
 test("reports a settings file it cannot parse instead of overwriting it", async () => {
