@@ -71,3 +71,47 @@ electron-builder.yml            安装包配置
 一轮对话的流程：`POST /api/sessions/[id]` 在后台调用 `session.prompt()`，
 pi 的事件流被转换成 SSE：文本增量发 `delta`，消息/工具状态变化发全量 `sync`，
 客户端交给 `useExternalStoreRuntime` 渲染。工具调用结果会合并到对应的 tool-call part。
+
+每个源文件顶部都有一段中文说明，函数与关键逻辑处也补了中文注释，可以按上面的顺序读。
+
+## 代码导读（写给 Python 程序员）
+
+这是一个 TypeScript + React 项目，风格是「函数 + 类型注解」，而不是一堆类。
+记住下面这张对照表，读代码基本无障碍：
+
+| JavaScript / TypeScript | Python 里最接近的东西 |
+| --- | --- |
+| `type Foo = { a: string }` | `TypedDict` / dataclass |
+| `Partial<Config>` | 所有字段都变成可选 |
+| `x?: string` | 字段可以不存在，等价 `Optional[str] = None` |
+| `value ?? fallback` | `value if value is not None else fallback` |
+| `value?.name` | `None if value is None else value.name` |
+| `a \|\| b` | `a or b`（`0` / `""` 也算假） |
+| `async` / `await` | 同 Python 的 asyncio |
+| `Promise<T>` | `Awaitable[T]` |
+| `void promise` | 不 await 的 fire-and-forget（类似 `asyncio.create_task`） |
+| `array.map(f)` | `[f(x) for x in array]` |
+| `array.filter(f)` | `[x for x in array if f(x)]` |
+| `array.find(f)` | `next((x for x in a if f(x)), None)` |
+| `new Map<K, V>()` | `dict[K, V]` |
+| `new Set<T>()` + `[...set]` | `set[T]` + `list(set)` |
+| `try / catch` | `try / except` |
+| `"use client"` | 标明该文件在浏览器里运行（否则默认服务端渲染） |
+| `useState` | 组件里「改了会自动重绘」的字段 |
+| `useEffect(fn, [deps])` | 挂载 / 依赖变化时执行，返回函数用于清理 |
+
+结构上的对应关系：
+
+- `app/api/**/route.ts` 里导出的 `GET` / `POST` / `DELETE` 就是路由处理器，
+  `[id]` 目录是路径参数（相当于 `/api/sessions/<id>`）。
+- `lib/harness.ts` 是唯一的业务逻辑层；路由文件很薄，只做参数与错误处理。
+- `lib/types.ts` 相当于共享的 `models.py`，前后端都 import。
+- `components/chat.tsx` 是 React 组件：状态（消息列表）在客户端，服务端只负责推送事件。
+
+## 已做的优化
+
+- `lib/harness.ts`：`toUi()` 去掉隐式 `any`，改用最小化的 `PiMessage` 类型；
+  `subscribe()` 先注册监听再发初始快照，避免首帧漏事件；`disposeAll()` 同时清理「正在打开」表；
+  `listSessions()` 用 `Set` 去重，避免 O(n²) 的 `some()`。
+- `app/page.tsx`：抽出 `requestJson()` / `jsonInit()`，统一错误提示；删除会话失败不再静默。
+- `next build`：动态路径补 `/*turbopackIgnore: true*/`，构建不再出现 tracing 警告。

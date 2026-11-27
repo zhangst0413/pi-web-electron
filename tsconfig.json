@@ -1,3 +1,8 @@
+// tsconfig.json —— TypeScript 编译配置（Next.js 自动生成 + 少量说明）。
+// 注意：允许写注释（JSONC）。给 Python 程序员的类比：
+//   strict: true        ≈ mypy --strict 全开
+//   noEmit: true        ≈ 只做类型检查，不产出编译结果（真正的编译交给 Next/SWC）
+//   paths["@/*"]        ≈ 项目内绝对导入，用 `@/lib/types` 代替 `../../lib/types`
 {
   "compilerOptions": {
     "target": "ES2022",
@@ -35,6 +40,7 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
+  // electron/ 下是 CommonJS 脚本，不参与前端类型检查。
   "exclude": [
     "node_modules",
     "electron"

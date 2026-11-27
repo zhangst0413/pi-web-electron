@@ -1,10 +1,14 @@
-# electron-builder config. The shell (electron/main.cjs) runs the built Next.js
-# server from resources/app, so `.next` and the production node_modules ship with
-# it. asar stays off because Next resolves files by real path at runtime.
+# electron-builder.yml —— 安装包配置。
+#
+# 桌面外壳（electron/main.cjs）会从 resources/app 里跑构建好的 Next.js 服务，
+# 所以 `.next` 和生产依赖的 node_modules 必须一起打包进去。
+# asar 必须关闭：Next.js 运行时按真实文件路径解析文件，asar 虚拟文件系统会失败。
 appId: com.pi.harness.desktop
 productName: pi harness
+# 不重新编译原生模块（本项目没有需要 rebuild 的依赖）。
 npmRebuild: false
 asar: false
+# 直接复用本地已下载的 Electron，避免打包时再次联网下载。
 electronDist: node_modules/electron/dist
 directories:
   output: release
@@ -12,6 +16,7 @@ directories:
 files:
   - electron/**/*
   - .next/**/*
+  # 排除缓存、开发产物和 sourcemap，减小安装包体积
   - "!.next/cache/**"
   - "!.next/dev/**"
   - "!.next/**/*.map"
