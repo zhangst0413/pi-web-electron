@@ -20,5 +20,6 @@ export type SessionSummary = {
 export type Config = {
 	apiKey: string;
 	model: string;
-	cwd: string;
+	/** Directories the sidebar offers for new sessions. */
+	workspaces: string[];
 };

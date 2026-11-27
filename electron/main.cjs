@@ -3,11 +3,17 @@ const { app, BrowserWindow, dialog, ipcMain } = require("electron");
 const { spawn, spawnSync } = require("node:child_process");
 const { existsSync } = require("node:fs");
 const http = require("node:http");
+const os = require("node:os");
 const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
 const URL = "http://127.0.0.1:4311";
 const PROD = existsSync(path.join(ROOT, ".next", "BUILD_ID"));
+const DATA_DIR =
+	process.env.HARNESS_DATA ||
+	(app.isPackaged ? path.join(app.getPath("userData"), "data") : path.join(ROOT, "data"));
+
+app.setAppUserModelId("com.pi.harness.desktop");
 
 let server;
 
@@ -40,7 +46,8 @@ async function main() {
 			env: {
 				...process.env,
 				ELECTRON_RUN_AS_NODE: "1",
-				HARNESS_DATA: process.env.HARNESS_DATA || path.join(ROOT, "data"),
+				HARNESS_DATA: DATA_DIR,
+				HARNESS_DEFAULT_CWD: app.isPackaged ? os.homedir() : ROOT,
 				NEXT_TELEMETRY_DISABLED: "1",
 			},
 			stdio: "ignore",
@@ -53,10 +60,12 @@ async function main() {
 		height: 840,
 		backgroundColor: "#111214",
 		autoHideMenuBar: true,
+		icon: path.join(__dirname, "icon.png"),
 		webPreferences: {
 			preload: path.join(__dirname, "preload.cjs"),
 			contextIsolation: true,
 			sandbox: true,
+			spellcheck: false,
 		},
 	});
 	window.loadURL(URL);

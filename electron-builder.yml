@@ -1,0 +1,38 @@
+# electron-builder config. The shell (electron/main.cjs) runs the built Next.js
+# server from resources/app, so `.next` and the production node_modules ship with
+# it. asar stays off because Next resolves files by real path at runtime.
+appId: com.pi.harness.desktop
+productName: pi harness
+npmRebuild: false
+asar: false
+electronDist: node_modules/electron/dist
+directories:
+  output: release
+  buildResources: electron
+files:
+  - electron/**/*
+  - .next/**/*
+  - "!.next/cache/**"
+  - "!.next/dev/**"
+  - "!.next/**/*.map"
+  - next.config.ts
+  - package.json
+  - "!node_modules/**/*.map"
+win:
+  target:
+    - nsis
+  icon: electron/icon.ico
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: pi harness
+  installerIcon: electron/icon.ico
+  uninstallerIcon: electron/icon.ico
+mac:
+  icon: electron/icon.png
+linux:
+  icon: electron/icon.png
+  target:
+    - AppImage

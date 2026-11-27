@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import logo from "@/lib/pi-logo.svg";
 import "./globals.css";
 
-export const metadata: Metadata = { title: "pi harness" };
+const icon: string = typeof logo === "string" ? logo : logo.src;
+
+export const metadata: Metadata = {
+	title: "pi harness",
+	icons: { icon },
+};
 
 export default function RootLayout({ children }: { children: ReactNode }) {
 	return (

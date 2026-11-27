@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import logo from "@/lib/pi-logo.svg";
 import { Chat } from "@/components/chat";
 import type { Config, SessionSummary } from "@/lib/types";
 
@@ -10,12 +11,19 @@ declare global {
 	}
 }
 
+const logoUrl: string = typeof logo === "string" ? logo : logo.src;
+const baseName = (path: string) => path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
+
 export default function Page() {
 	const [config, setConfig] = useState<Config | null>(null);
 	const [sessions, setSessions] = useState<SessionSummary[]>([]);
 	const [active, setActive] = useState<string | null>(null);
+	const [workspace, setWorkspace] = useState<string | null>(null);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [notice, setNotice] = useState("");
+
+	const selected = workspace && config?.workspaces.includes(workspace) ? workspace : (config?.workspaces[0] ?? null);
+	const anyRunning = sessions.some((session) => session.running);
 
 	const loadSessions = useCallback(async () => {
 		const response = await fetch("/api/sessions");
@@ -29,11 +37,19 @@ export default function Page() {
 		void (async () => {
 			const loaded: Config = await fetch("/api/config").then((response) => response.json());
 			setConfig(loaded);
+			setWorkspace(loaded.workspaces[0] ?? null);
 			const list = await loadSessions();
 			if (list[0]) setActive(list[0].id);
 			if (!loaded.apiKey) setSettingsOpen(true);
 		})();
 	}, [loadSessions]);
+
+	// Keep the sidebar's running dots fresh while a background session works.
+	useEffect(() => {
+		if (!anyRunning) return;
+		const timer = setInterval(() => void loadSessions(), 2000);
+		return () => clearInterval(timer);
+	}, [anyRunning, loadSessions]);
 
 	const saveConfig = async (patch: Partial<Config>) => {
 		setNotice("");
@@ -45,28 +61,47 @@ export default function Page() {
 		const data = await response.json();
 		if (!response.ok) {
 			setNotice(data.error ?? "保存失败");
-			return false;
-		}
-		location.reload();
-		return true;
-	};
-
-	const pickDirectory = async () => {
-		if (!config) return;
-		const picked = window.harness
-			? await window.harness.pickDirectory(config.cwd)
-			: window.prompt("工作目录", config.cwd);
-		if (picked) await saveConfig({ cwd: picked });
-	};
-
-	const createSession = async () => {
-		setNotice("");
-		const response = await fetch("/api/sessions", { method: "POST" });
-		const data = await response.json();
-		if (!response.ok) {
-			setNotice(data.error ?? "创建会话失败");
 			return;
 		}
+		location.reload();
+	};
+
+	const addWorkspace = async () => {
+		const picked = window.harness
+			? await window.harness.pickDirectory(selected ?? "")
+			: window.prompt("工作目录", selected ?? "");
+		if (!picked) return;
+		setNotice("");
+		const response = await fetch("/api/workspaces", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ path: picked }),
+		});
+		const data = await response.json();
+		if (!response.ok) return setNotice(data.error ?? "添加失败");
+		setConfig(data);
+		setWorkspace(data.workspaces.at(-1) ?? null);
+	};
+
+	const removeWorkspace = async (path: string) => {
+		const response = await fetch(`/api/workspaces?path=${encodeURIComponent(path)}`, { method: "DELETE" });
+		const data = await response.json();
+		if (!response.ok) return setNotice(data.error ?? "移除失败");
+		setConfig(data);
+	};
+
+	const createSession = async (cwd?: string) => {
+		const target = cwd ?? selected;
+		if (!target) return;
+		setNotice("");
+		const response = await fetch("/api/sessions", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ cwd: target }),
+		});
+		const data = await response.json();
+		if (!response.ok) return setNotice(data.error ?? "创建会话失败");
+		setWorkspace(target);
 		await loadSessions();
 		setActive(data.id);
 	};
@@ -82,47 +117,96 @@ export default function Page() {
 		<div className="app">
 			<aside className="sidebar">
 				<div className="sidebar-head">
-					<strong>pi harness</strong>
+					<span className="brand">
+						<img className="brand-logo" src={logoUrl} alt="" />
+						pi harness
+					</span>
 					<button type="button" className="link" onClick={() => setSettingsOpen(true)}>
 						设置
 					</button>
 				</div>
 
-				<button type="button" className="button new" onClick={createSession} disabled={!config?.apiKey}>
+				<div className="section">
+					<div className="section-title">工作目录</div>
+					<div className="workspace-list">
+						{config?.workspaces.map((dir) => (
+							<div
+								key={dir}
+								className={dir === selected ? "workspace active" : "workspace"}
+								title={dir}
+								onClick={() => setWorkspace(dir)}
+							>
+								<span className="workspace-name">{baseName(dir)}</span>
+								<button
+									type="button"
+									className="workspace-action"
+									title="在此目录新建会话"
+									onClick={(event) => {
+										event.stopPropagation();
+										void createSession(dir);
+									}}
+								>
+									＋
+								</button>
+								<button
+									type="button"
+									className="workspace-action"
+									title="从列表移除"
+									onClick={(event) => {
+										event.stopPropagation();
+										void removeWorkspace(dir);
+									}}
+								>
+									×
+								</button>
+							</div>
+						))}
+						<button type="button" className="button add-workspace" onClick={addWorkspace}>
+							＋ 添加目录
+						</button>
+					</div>
+				</div>
+
+				<button
+					type="button"
+					className="button new"
+					onClick={() => void createSession()}
+					disabled={!config?.apiKey || !selected}
+				>
 					＋ 新会话
 				</button>
-				<button type="button" className="cwd" title={config?.cwd} onClick={pickDirectory}>
-					{config?.cwd ?? "选择工作目录"}
-				</button>
 
-				<div className="session-list">
-					{sessions.map((session) => (
-						<div
-							key={session.id}
-							className={session.id === active ? "session active" : "session"}
-							onClick={() => setActive(session.id)}
-						>
-							<div className="session-title">
-								{session.running && <span className="dot" />}
-								{session.title}
-							</div>
-							<div className="session-meta">
-								{new Date(session.modified).toLocaleString()} · {session.cwd}
-							</div>
-							<button
-								type="button"
-								className="remove"
-								title="删除"
-								onClick={(event) => {
-									event.stopPropagation();
-									void removeSession(session.id);
-								}}
+				<div className="section session-section">
+					<div className="section-title">会话</div>
+					<div className="session-list">
+						{sessions.map((session) => (
+							<div
+								key={session.id}
+								className={session.id === active ? "session active" : "session"}
+								onClick={() => setActive(session.id)}
 							>
-								×
-							</button>
-						</div>
-					))}
-					{sessions.length === 0 && <p className="hint">还没有会话</p>}
+								<div className="session-title">
+									{session.running && <span className="dot" />}
+									{session.title}
+								</div>
+								<div className="session-meta" title={session.cwd}>
+									{baseName(session.cwd)} · {new Date(session.modified).toLocaleString()}
+								</div>
+								<button
+									type="button"
+									className="remove"
+									title="删除"
+									onClick={(event) => {
+										event.stopPropagation();
+										void removeSession(session.id);
+									}}
+								>
+									×
+								</button>
+							</div>
+						))}
+						{sessions.length === 0 && <p className="hint">还没有会话</p>}
+					</div>
 				</div>
 			</aside>
 
@@ -131,7 +215,11 @@ export default function Page() {
 					<Chat key={active} sessionId={active} onActivity={loadSessions} />
 				) : (
 					<div className="placeholder">
-						{config?.apiKey ? "新建或选择一个会话" : "请先在设置里填写 opencode-go API Key"}
+						{!config?.apiKey
+							? "请先在设置里填写 opencode-go API Key"
+							: config.workspaces.length === 0
+								? "先添加一个工作目录"
+								: "新建或选择一个会话"}
 					</div>
 				)}
 			</main>
@@ -151,11 +239,10 @@ function Settings({
 }: {
 	config: Config;
 	onClose: () => void;
-	onSave: (patch: Partial<Config>) => Promise<boolean>;
+	onSave: (patch: Partial<Config>) => Promise<void>;
 }) {
 	const [model, setModel] = useState(config.model);
 	const [apiKey, setApiKey] = useState(config.apiKey);
-	const [cwd, setCwd] = useState(config.cwd);
 	const [busy, setBusy] = useState(false);
 
 	return (
@@ -166,7 +253,7 @@ function Settings({
 				onSubmit={async (event) => {
 					event.preventDefault();
 					setBusy(true);
-					await onSave({ model, apiKey, cwd });
+					await onSave({ model, apiKey });
 					setBusy(false);
 				}}
 			>
@@ -174,17 +261,19 @@ function Settings({
 
 				<label>
 					opencode-go API Key
-					<input value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="sk-..." />
+					<input
+						type="password"
+						autoComplete="off"
+						spellCheck={false}
+						value={apiKey}
+						onChange={(event) => setApiKey(event.target.value)}
+						placeholder="sk-..."
+					/>
 				</label>
 
 				<label>
 					模型 ID
 					<input value={model} onChange={(event) => setModel(event.target.value)} placeholder="deepseek-v4.1-flash" />
-				</label>
-
-				<label>
-					工作目录
-					<input value={cwd} onChange={(event) => setCwd(event.target.value)} />
 				</label>
 
 				<div className="modal-actions">

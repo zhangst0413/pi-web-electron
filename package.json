@@ -1,14 +1,18 @@
 {
   "name": "pi-sdk-harness",
+  "productName": "pi harness",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "next dev -H 127.0.0.1 -p 4311",
     "build": "next build",
     "start": "next start -H 127.0.0.1 -p 4311",
     "desktop": "electron electron/main.cjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "desktop:pack": "npm run build && node scripts/desktop-build.mjs --dir",
+    "desktop:dist": "npm run build && node scripts/desktop-build.mjs"
   },
   "dependencies": {
     "@assistant-ui/react": "^0.15.38",
@@ -24,9 +28,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "electron": "^45.5.0",
+    "electron-builder": "^26.18.0",
     "typescript": "^5"
   },
   "config": {
     "electron_mirror": "https://npmmirror.com/mirrors/electron/"
-  }
+  },
+  "description": "Minimal local coding-agent harness: Next.js + Electron + pi SDK + assistant-ui",
+  "author": "pi harness"
 }

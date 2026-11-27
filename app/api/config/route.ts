@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readConfig, saveConfig } from "@/lib/harness";
+import { errorText, readConfig, saveConfig } from "@/lib/harness";
 import type { Config } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +17,3 @@ export async function PUT(request: Request) {
 	}
 }
 
-function errorText(error: unknown) {
-	return error instanceof Error ? error.message : String(error);
-}

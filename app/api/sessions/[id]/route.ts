@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { abortRun, deleteSession, sendPrompt } from "@/lib/harness";
+import { abortRun, deleteSession, errorText, sendPrompt } from "@/lib/harness";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,3 @@ export async function DELETE(_request: Request, { params }: Context) {
 	return NextResponse.json({ ok: true });
 }
 
-function errorText(error: unknown) {
-	return error instanceof Error ? error.message : String(error);
-}

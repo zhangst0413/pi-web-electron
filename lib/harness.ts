@@ -31,43 +31,79 @@ const live = new Map<string, Live>();
 const opening = new Map<string, Promise<Live>>();
 let runtimePromise: Promise<ModelRuntime> | undefined;
 
-const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
+export const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 // ---------------------------------------------------------------- config
 
 export function readConfig(): Config {
 	const saved = existsSync(CONFIG_FILE)
-		? (JSON.parse(readFileSync(CONFIG_FILE, "utf8")) as Partial<Config>)
+		? (JSON.parse(readFileSync(CONFIG_FILE, "utf8")) as Partial<Config> & { cwd?: string })
 		: {};
+	// `cwd` is the single-directory config of the first version; migrate it to a workspace list.
+	const workspaces = Array.isArray(saved.workspaces)
+		? uniqueDirectories(saved.workspaces)
+		: saved.cwd?.trim()
+			? [resolve(/*turbopackIgnore: true*/ saved.cwd)]
+			: [process.env.HARNESS_DEFAULT_CWD?.trim() || process.cwd()];
 	return {
 		apiKey: typeof saved.apiKey === "string" ? saved.apiKey : "",
 		model: saved.model?.trim() || DEFAULT_MODEL,
-		cwd: resolve(/*turbopackIgnore: true*/ saved.cwd?.trim() || process.cwd()),
+		workspaces,
 	};
 }
 
-/** Validate and persist config. Existing live sessions are dropped so they pick up the new key/model. */
+/** Validate and persist key/model. Existing live sessions are dropped so they pick up the new config. */
 export async function saveConfig(patch: Partial<Config>): Promise<Config> {
 	const config = readConfig();
 	if (typeof patch.apiKey === "string") config.apiKey = patch.apiKey.trim();
 	if (typeof patch.model === "string" && patch.model.trim()) config.model = patch.model.trim();
-	if (typeof patch.cwd === "string" && patch.cwd.trim()) config.cwd = resolve(patch.cwd.trim());
-
-	try {
-		if (!statSync(config.cwd).isDirectory()) throw new Error();
-	} catch {
-		throw new Error(`工作目录不存在: ${config.cwd}`);
-	}
 
 	const runtime = await getRuntime(config.apiKey);
 	if (!runtime.getModel(PROVIDER, config.model)) {
 		throw new Error(`${PROVIDER} 没有模型 "${config.model}"`);
 	}
 
-	mkdirSync(DATA_DIR, { recursive: true });
-	writeFileSync(CONFIG_FILE, `${JSON.stringify(config, null, 2)}\n`);
+	persist(config);
 	disposeAll();
 	return config;
+}
+
+export function addWorkspace(directory: string): Config {
+	const dir = resolve(/*turbopackIgnore: true*/ directory);
+	assertDirectory(dir);
+	const config = readConfig();
+	if (!config.workspaces.includes(dir)) config.workspaces = [...config.workspaces, dir];
+	persist(config);
+	return config;
+}
+
+export function removeWorkspace(directory: string): Config {
+	const dir = resolve(/*turbopackIgnore: true*/ directory);
+	const config = readConfig();
+	config.workspaces = config.workspaces.filter((workspace) => workspace !== dir);
+	persist(config);
+	return config;
+}
+
+function uniqueDirectories(values: unknown[]): string[] {
+	const dirs = values
+		.filter((value): value is string => typeof value === "string" && value.trim() !== "")
+		.map((value) => resolve(/*turbopackIgnore: true*/ value));
+	return [...new Set(dirs)];
+}
+
+function assertDirectory(directory: string) {
+	try {
+		if (statSync(directory).isDirectory()) return;
+	} catch {
+		// fall through
+	}
+	throw new Error(`工作目录不存在: ${directory}`);
+}
+
+function persist(config: Config) {
+	mkdirSync(DATA_DIR, { recursive: true });
+	writeFileSync(CONFIG_FILE, `${JSON.stringify(config, null, 2)}\n`);
 }
 
 async function getRuntime(apiKey: string): Promise<ModelRuntime> {
@@ -235,9 +271,11 @@ export async function openSession(id: string): Promise<Live> {
 	}
 }
 
-export async function newSession(): Promise<string> {
+export async function newSession(cwd?: string): Promise<string> {
 	const config = readConfig();
-	return (await createLive(SessionManager.create(config.cwd, SESSIONS_DIR))).id;
+	const directory = resolve(/*turbopackIgnore: true*/ cwd?.trim() || config.workspaces[0] || process.cwd());
+	assertDirectory(directory);
+	return (await createLive(SessionManager.create(directory, SESSIONS_DIR))).id;
 }
 
 export async function listSessions(): Promise<SessionSummary[]> {
