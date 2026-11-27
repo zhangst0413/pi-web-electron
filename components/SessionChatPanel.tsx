@@ -8,7 +8,7 @@ import type { SessionInfo } from "@/lib/types";
 
 type ChatProps = ComponentProps<typeof ChatWindow>;
 
-interface Props extends Pick<ChatProps, "modelsRefreshKey" | "onOpenFile" | "onToolEnd" | "onFilesUploaded" | "initialPrompt" | "onInitialPromptConsumed" | "soundEnabled" | "onSoundToggle" | "playDoneSound" | "unlockAudio" | "holdAudio" | "quoteSelectionEnabled" | "onSessionForked" | "onSessionEnded"> {
+interface Props extends Pick<ChatProps, "modelsRefreshKey" | "onOpenFile" | "onToolEnd" | "onFilesUploaded" | "initialPrompt" | "onInitialPromptConsumed" | "soundEnabled" | "onSoundToggle" | "playDoneSound" | "unlockAudio" | "holdAudio" | "onSessionForked" | "onSessionEnded"> {
   sessionId: string;
   running: boolean;
 }

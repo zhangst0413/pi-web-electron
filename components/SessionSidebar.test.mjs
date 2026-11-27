@@ -145,8 +145,8 @@ test("only Shift skips the session deletion confirmation", () => {
 });
 
 test("on a desktop the files sit below the sessions by default, both in view", () => {
-  // The server renders the default placement on a desktop (useFilesPlacement
-  // and useIsMobile's server snapshots): the stacked layout.
+  // The server renders a desktop (useIsMobile's server snapshot): the
+  // stacked layout.
   const html = render({ selectedCwd: "/work/alpha", onOpenTerminal: noop });
   assert.match(html, /^<div class="session-sidebar is-files-below" style="--sidebar-files-height:320px">/);
   // No tabs: the brand (its name says the versions a click shows), then New
@@ -413,7 +413,6 @@ test("below the sessions the picker is one row under the header row, lined up wi
 test("the layout, the tab and the fold chosen last never change the first render, which matches the server's", () => {
   const serverHtml = render();
   const saved = {
-    "pi-web:sidebar-files-placement": "tab",
     "pi-web:sidebar-tab": "files",
     "pi-web:sidebar-files-collapsed": "true",
     "pi-web:sidebar-groups-v2": JSON.stringify({ "/work/alpha": false }),

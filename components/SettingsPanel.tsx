@@ -3,46 +3,21 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import {
-  CHAT_CONTENT_WIDTH_DEFAULT,
-  CHAT_CONTENT_WIDTH_MAX,
-  CHAT_CONTENT_WIDTH_MIN,
-  CHAT_CONTENT_FONT_SIZE_DEFAULT,
-  CHAT_CONTENT_FONT_SIZE_MAX,
-  CHAT_CONTENT_FONT_SIZE_MIN,
-  useChatAppearance,
-} from "@/hooks/useChatAppearance";
-import { useEnterSendMode, setEnterSendMode } from "@/hooks/useEnterSendMode";
-import { useFilesPlacement, setFilesPlacement } from "@/hooks/useFilesPlacement";
-import { clearStoredDrafts } from "@/lib/draft-store";
-import type { ProjectTrustStatus, ToolSettingsResponse } from "@/lib/api-types";
-import { SETTINGS_BUILTIN_TOOLS } from "@/lib/tool-presets";
+import type { ProjectTrustStatus } from "@/lib/api-types";
 import {
   setLastSettingsSection,
   settingsSectionRequiresProject,
   type SettingsSection,
 } from "@/lib/settings-navigation";
 import { focusModalPanel, listenForPanelEscape } from "@/lib/stacked-dialog";
-import {
-  isThinkingExpandedByDefault,
-  setThinkingExpandedByDefault,
-} from "@/lib/thinking-expansion-preference";
 import { ModelsConfig } from "./ModelsConfig";
 import { SkillsConfig } from "./SkillsConfig";
-import { ConfigButton, ConfigDetailNavigationContext, ConfigSwitch, type ConfigDetailNavigation } from "./SettingsUi";
-import { FontSettings } from "./FontSettings";
-import { readJsonOrThrow } from "@/lib/fetch-json";
+import { ConfigDetailNavigationContext, type ConfigDetailNavigation } from "./SettingsUi";
 
 interface Props {
   cwd: string | null;
-  sessionId: string | null;
   initialSection: SettingsSection;
-  /** A phone opens on the list of sections instead of `initialSection` (the plain Settings button). */
-  openAtHome?: boolean;
   onClose: () => void;
-  onSessionReloaded: () => void;
-  quoteSelectionEnabled: boolean;
-  onQuoteSelectionChange: (enabled: boolean) => void;
   /** The page's trust status for `cwd`; the sections that read it reload when it changes. */
   projectTrust?: ProjectTrustStatus | null;
 }
@@ -61,329 +36,15 @@ export function SettingsSectionIcon({ section, size = 16, strokeWidth = 1.8 }: {
     className: "settings-section-icon",
   };
 
-  if (section === "general") return <svg {...common}><path d="M20 7h-9M14 17H5" /><circle cx="7" cy="7" r="3" /><circle cx="17" cy="17" r="3" /></svg>;
   if (section === "models") return <svg {...common}><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3" /></svg>;
   return <svg {...common}><path d="m12 2-10 5 10 5 10-5-10-5Z" /><path d="m2 12 10 5 10-5M2 17l10 5 10-5" /></svg>;
 }
 
-function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, onQuoteSelectionChange }: Pick<Props, "sessionId" | "onSessionReloaded" | "quoteSelectionEnabled" | "onQuoteSelectionChange">) {
-  const { t } = useI18n();
-  const { width: chatContentWidth, setWidth: setChatContentWidth, fontSize, setFontSize } = useChatAppearance();
-  const enterSendMode = useEnterSendMode();
-  const filesPlacement = useFilesPlacement();
-  const [shellSettings, setShellSettings] = useState<ToolSettingsResponse | null>(null);
-  const [builtinToolsSaving, setBuiltinToolsSaving] = useState(false);
-  const [builtinToolsError, setBuiltinToolsError] = useState<string | null>(null);
-  const [thinkingExpanded, setThinkingExpanded] = useState(false);
-  const [cacheMissNotices, setCacheMissNotices] = useState<boolean | null>(null);
-  const [cacheMissNoticesSaving, setCacheMissNoticesSaving] = useState(false);
-  const [cacheMissNoticesError, setCacheMissNoticesError] = useState<string | null>(null);
-  const [webAuthEnabled, setWebAuthEnabled] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [logoutError, setLogoutError] = useState("");
+// A phone shows Settings one level at a time: a section (its list), a row's detail.
+type PhoneLevel = "section" | "detail";
 
-  useEffect(() => {
-    setThinkingExpanded(isThinkingExpandedByDefault());
-    void fetch("/api/web-auth")
-      .then((response) => response.ok ? response.json() : null)
-      .then((data: { enabled?: boolean } | null) => setWebAuthEnabled(data?.enabled === true))
-      .catch(() => {});
-  }, []);
-
-  const logOut = async () => {
-    setLoggingOut(true);
-    setLogoutError("");
-    try {
-      const response = await fetch("/api/web-auth", { method: "DELETE" });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      // Unsent text stays in this browser's storage otherwise.
-      clearStoredDrafts();
-      window.location.replace("/login");
-    } catch {
-      setLogoutError(t("auth.logoutFailed"));
-    } finally {
-      setLoggingOut(false);
-    }
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/tools/settings")
-      .then(async (response) => {
-        const data = await readJsonOrThrow<ToolSettingsResponse>(response);
-        if (!cancelled) setShellSettings(data);
-      })
-      .catch((cause) => {
-        if (!cancelled) setBuiltinToolsError(cause instanceof Error ? cause.message : String(cause));
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/cache-miss-notices")
-      .then(async (response) => {
-        const data = await readJsonOrThrow<{ enabled?: boolean }>(response);
-        if (!cancelled) setCacheMissNotices(data.enabled === true);
-      })
-      .catch((cause) => {
-        if (!cancelled) setCacheMissNoticesError(cause instanceof Error ? cause.message : String(cause));
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  // pi's showCacheMissNotices (#1265); the open chat is read again to show or drop them.
-  const toggleCacheMissNotices = async (enabled: boolean) => {
-    setCacheMissNoticesSaving(true);
-    setCacheMissNoticesError(null);
-    try {
-      const response = await fetch("/api/cache-miss-notices", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled }),
-      });
-      const data = await readJsonOrThrow<{ enabled?: boolean }>(response);
-      setCacheMissNotices(data.enabled === true);
-      if (sessionId) onSessionReloaded();
-    } catch (cause) {
-      setCacheMissNoticesError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setCacheMissNoticesSaving(false);
-    }
-  };
-
-  // The global defaultTools the configured preset follows: new sessions only.
-  const toggleBuiltinTool = async (name: string, enabled: boolean) => {
-    if (!shellSettings) return;
-    setBuiltinToolsSaving(true);
-    setBuiltinToolsError(null);
-    try {
-      const builtinTools = enabled ? [...shellSettings.builtinTools, name] : shellSettings.builtinTools.filter((tool) => tool !== name);
-      const response = await fetch("/api/tools/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ builtinTools }),
-      });
-      const data = await readJsonOrThrow<ToolSettingsResponse>(response);
-      setShellSettings(data);
-    } catch (cause) {
-      setBuiltinToolsError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setBuiltinToolsSaving(false);
-    }
-  };
-
-  return (
-    <div className="settings-general">
-      <section className="settings-general-section">
-        <h3 className="settings-general-heading">{t("settings.typography")}</h3>
-        <p id="settings-typography-description" className="settings-general-description">{t("settings.fontDescription")}</p>
-        <div className="settings-chat-options">
-          <FontSettings />
-          <div className="settings-chat-option settings-chat-range-option">
-            <div className="settings-chat-range-header">
-              <label htmlFor="settings-chat-content-font-size">{t("settings.chatContentFontSize")}</label>
-              <output htmlFor="settings-chat-content-font-size">{fontSize}px</output>
-              <ConfigButton
-                variant="ghost"
-                size="small"
-                className="settings-chat-reset"
-                title={t("settings.resetChatContentFontSize")}
-                aria-label={t("settings.resetChatContentFontSize")}
-                disabled={fontSize === CHAT_CONTENT_FONT_SIZE_DEFAULT}
-                onClick={() => setFontSize(CHAT_CONTENT_FONT_SIZE_DEFAULT)}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" />
-                </svg>
-              </ConfigButton>
-            </div>
-            <input
-              id="settings-chat-content-font-size"
-              type="range"
-              min={CHAT_CONTENT_FONT_SIZE_MIN}
-              max={CHAT_CONTENT_FONT_SIZE_MAX}
-              step={1}
-              value={fontSize}
-              onChange={(event) => setFontSize(Number(event.target.value))}
-            />
-          </div>
-          <div className="settings-chat-option settings-chat-range-option">
-            <div className="settings-chat-range-header">
-              <label htmlFor="settings-chat-content-width">{t("settings.chatContentWidth")}</label>
-              <output htmlFor="settings-chat-content-width">{chatContentWidth}px</output>
-              <ConfigButton
-                variant="ghost"
-                size="small"
-                className="settings-chat-reset"
-                title={t("settings.resetChatContentWidth")}
-                aria-label={t("settings.resetChatContentWidth")}
-                disabled={chatContentWidth === CHAT_CONTENT_WIDTH_DEFAULT}
-                onClick={() => setChatContentWidth(CHAT_CONTENT_WIDTH_DEFAULT)}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" />
-                </svg>
-              </ConfigButton>
-            </div>
-            <input
-              id="settings-chat-content-width"
-              type="range"
-              min={CHAT_CONTENT_WIDTH_MIN}
-              max={CHAT_CONTENT_WIDTH_MAX}
-              step={10}
-              value={chatContentWidth}
-              onChange={(event) => setChatContentWidth(Number(event.target.value))}
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="settings-general-section">
-        <h3 className="settings-general-heading">{t("settings.chat")}</h3>
-        <div className="settings-chat-options">
-          <div className="settings-chat-option settings-chat-switch-option">
-            <span>{t("settings.thinkingExpandedDefault")}</span>
-            <ConfigSwitch
-              checked={thinkingExpanded}
-              label={t("settings.thinkingExpandedDefault")}
-              onChange={(enabled) => {
-                setThinkingExpandedByDefault(enabled);
-                setThinkingExpanded(enabled);
-              }}
-            />
-          </div>
-          <div className="settings-chat-option settings-chat-switch-option">
-            <span>{t("settings.quoteSelection")}</span>
-            <ConfigSwitch
-              checked={quoteSelectionEnabled}
-              label={t("settings.quoteSelection")}
-              onChange={onQuoteSelectionChange}
-            />
-          </div>
-          <div className="settings-chat-option settings-chat-switch-option" role="radiogroup" aria-label={t("settings.enterSendMode")}>
-            <span>{t("settings.enterSendMode")}</span>
-            <div className="settings-send-mode-options">
-              <label className="settings-send-mode-option">
-                <input
-                  type="radio"
-                  name="enter-send-mode"
-                  value="enter"
-                  checked={enterSendMode === "enter"}
-                  onChange={() => setEnterSendMode("enter")}
-                  className="sr-only"
-                />
-                <span className="settings-send-mode-label">{t("settings.enterSendModeEnter")}</span>
-              </label>
-              <label className="settings-send-mode-option">
-                <input
-                  type="radio"
-                  name="enter-send-mode"
-                  value="ctrlEnter"
-                  checked={enterSendMode === "ctrlEnter"}
-                  onChange={() => setEnterSendMode("ctrlEnter")}
-                  className="sr-only"
-                />
-                <span className="settings-send-mode-label">{t("settings.enterSendModeCtrlEnter")}</span>
-              </label>
-            </div>
-          </div>
-          <div className="settings-chat-option settings-chat-switch-option">
-            <span>{t("settings.cacheMissNotices")}</span>
-            <ConfigSwitch
-              checked={cacheMissNotices === true}
-              loading={(cacheMissNotices === null && !cacheMissNoticesError) || cacheMissNoticesSaving}
-              label={t("settings.cacheMissNotices")}
-              describedBy="settings-cache-miss-notices-description"
-              onChange={(enabled) => void toggleCacheMissNotices(enabled)}
-            />
-          </div>
-        </div>
-        <p id="settings-cache-miss-notices-description" className="settings-general-description">{t("settings.cacheMissNoticesDescription")}</p>
-        {cacheMissNoticesError && <p role="alert" className="settings-general-error">{cacheMissNoticesError}</p>}
-      </section>
-
-      <section className="settings-general-section">
-        <h3 className="settings-general-heading">{t("settings.sidebar")}</h3>
-        <div className="settings-chat-options">
-          <div
-            className="settings-chat-option settings-chat-switch-option"
-            role="radiogroup"
-            aria-label={t("settings.filesPlacement")}
-            aria-describedby="settings-files-placement-description"
-          >
-            <span>{t("settings.filesPlacement")}</span>
-            <div className="settings-send-mode-options">
-              <label className="settings-send-mode-option">
-                <input
-                  type="radio"
-                  name="files-placement"
-                  value="below"
-                  checked={filesPlacement === "below"}
-                  onChange={() => setFilesPlacement("below")}
-                  className="sr-only"
-                />
-                <span className="settings-send-mode-label">{t("settings.filesPlacementBelow")}</span>
-              </label>
-              <label className="settings-send-mode-option">
-                <input
-                  type="radio"
-                  name="files-placement"
-                  value="tab"
-                  checked={filesPlacement === "tab"}
-                  onChange={() => setFilesPlacement("tab")}
-                  className="sr-only"
-                />
-                <span className="settings-send-mode-label">{t("settings.filesPlacementTab")}</span>
-              </label>
-            </div>
-          </div>
-        </div>
-        <p id="settings-files-placement-description" className="settings-general-description">{t("settings.filesPlacementDescription")}</p>
-      </section>
-
-      <section className="settings-general-section">
-        <h3 className="settings-general-heading">{t("settings.builtinTools")}</h3>
-        <p id="settings-builtin-tools-description" className="settings-general-description">{t("settings.builtinToolsDescription")}</p>
-        {shellSettings && (
-          <div className="settings-send-mode-options settings-builtin-tools" role="group" aria-label={t("settings.builtinTools")} aria-describedby="settings-builtin-tools-description">
-            {SETTINGS_BUILTIN_TOOLS.map((name) => (
-              <label key={name} className="settings-send-mode-option">
-                <input
-                  type="checkbox"
-                  checked={shellSettings.builtinTools.includes(name)}
-                  disabled={builtinToolsSaving}
-                  onChange={(event) => void toggleBuiltinTool(name, event.target.checked)}
-                  className="sr-only"
-                />
-                <span className="settings-send-mode-label">{name}</span>
-              </label>
-            ))}
-          </div>
-        )}
-        {builtinToolsError && <p role="alert" className="settings-general-error">{builtinToolsError}</p>}
-      </section>
-
-      {webAuthEnabled && (
-        <section className="settings-general-section">
-          <ConfigButton variant="secondary" disabled={loggingOut} onClick={() => void logOut()}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M10 17l5-5-5-5M15 12H3M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-            </svg>
-            {loggingOut ? t("auth.loggingOut") : t("auth.logOut")}
-          </ConfigButton>
-          {logoutError && <p role="alert" className="settings-general-error">{logoutError}</p>}
-        </section>
-      )}
-    </div>
-  );
-}
-
-// A phone shows Settings one level at a time: the sections, a section (its list), a row's detail.
-type PhoneLevel = "home" | "section" | "detail";
-
-const PHONE_PARENT_LEVEL: Record<PhoneLevel, PhoneLevel> = { home: "home", section: "home", detail: "section" };
-const PHONE_LEVEL_DEPTH: Record<PhoneLevel, number> = { home: 0, section: 1, detail: 2 };
+const PHONE_PARENT_LEVEL: Record<PhoneLevel, PhoneLevel> = { section: "section", detail: "section" };
+const PHONE_LEVEL_DEPTH: Record<PhoneLevel, number> = { section: 0, detail: 1 };
 const PHONE_LEVEL_EASING = "cubic-bezier(0.2, 0.8, 0.2, 1)";
 
 /**
@@ -420,8 +81,8 @@ function animatePhoneLevelChange(main: HTMLElement | null, header: HTMLElement |
  * page. The entry copies the current history state (Next's router reads it)
  * and keeps the URL. Closing Settings drops the entries it added.
  */
-function usePhoneSettingsLevel(isPhone: boolean, openAtHome: boolean) {
-  const [level, setLevel] = useState<PhoneLevel>(openAtHome ? "home" : "section");
+function usePhoneSettingsLevel(isPhone: boolean) {
+  const [level, setLevel] = useState<PhoneLevel>("section");
   // A desktop shows a section, so a window narrowed to a phone's width stays
   // on it instead of falling back to the level the panel opened at.
   if (!isPhone && level !== "section") setLevel("section");
@@ -464,13 +125,8 @@ function usePhoneSettingsLevel(isPhone: boolean, openAtHome: boolean) {
 
 export function SettingsPanel({
   cwd,
-  sessionId,
   initialSection,
-  openAtHome = false,
   onClose: closeSettings,
-  onSessionReloaded,
-  quoteSelectionEnabled,
-  onQuoteSelectionChange,
   projectTrust,
 }: Props) {
   const { t } = useI18n();
@@ -480,13 +136,12 @@ export function SettingsPanel({
   );
   // Which sections need a project is decided once, in lib/settings-navigation.ts.
   const sections: { id: SettingsSection; label: string; requiresProject: boolean }[] = ([
-    { id: "general", label: t("settings.general") },
     { id: "models", label: t("common.models") },
     { id: "skills", label: t("common.skills") },
   ] as const).map((item) => ({ ...item, requiresProject: settingsSectionRequiresProject(item.id) }));
   const sectionRequiresProject = settingsSectionRequiresProject(section);
   const isPhone = useIsMobile();
-  const phone = usePhoneSettingsLevel(isPhone, openAtHome);
+  const phone = usePhoneSettingsLevel(isPhone);
   const { dropHistory, enter: enterPhoneLevel, goUp: goUpPhoneLevel, levelRef: phoneLevelRef } = phone;
   const headerRef = useRef<HTMLDivElement>(null);
   const backdropPressRef = useRef(false);
@@ -536,9 +191,9 @@ export function SettingsPanel({
 
   useEffect(() => {
     if (cwd || !sectionRequiresProject) return;
-    setSection("general");
-    setMountedSections((current) => new Set(current).add("general"));
-    setLastSettingsSection("general");
+    setSection("models");
+    setMountedSections((current) => new Set(current).add("models"));
+    setLastSettingsSection("models");
   }, [cwd, sectionRequiresProject]);
 
   const activateSection = (nextSection: SettingsSection) => {
@@ -547,15 +202,10 @@ export function SettingsPanel({
     setLastSettingsSection(nextSection);
   };
 
-  const openSectionFromHome = (nextSection: SettingsSection) => {
-    activateSection(nextSection);
-    enterPhoneLevel("section");
-  };
-
   const sectionHost = (id: SettingsSection, content: ReactNode) => mountedSections.has(id) ? (
     <div
       key={id}
-      hidden={section !== id || phone.level === "home"}
+      hidden={section !== id}
       data-phone-level={isPhone ? phone.level : undefined}
       className="settings-section-host"
     >
@@ -583,27 +233,22 @@ export function SettingsPanel({
     >
       <div className="settings-dialog-surface">
         <div ref={headerRef} className="settings-dialog-header">
-          {isPhone && phone.level !== "home" && (() => {
-            const backName = phone.level === "detail" ? sectionLabel : t("settings.title");
-            return (
-              <button
-                type="button"
-                className="settings-phone-back"
-                onClick={goUpPhoneLevel}
-                aria-label={t("settings.backTo", { name: backName })}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="m15 18-6-6 6-6" />
-                </svg>
-                <span>{backName}</span>
-              </button>
-            );
-          })()}
-          {/* A phone names the level it shows: Settings, the section, the detail's row. */}
+          {isPhone && phone.level === "detail" && (
+            <button
+              type="button"
+              className="settings-phone-back"
+              onClick={goUpPhoneLevel}
+              aria-label={t("settings.backTo", { name: sectionLabel })}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+              <span>{sectionLabel}</span>
+            </button>
+          )}
+          {/* A phone names the level it shows: the section, the detail's row. */}
           <strong className="settings-dialog-title">
-            {!isPhone || phone.level === "home"
-              ? t("settings.title")
-              : phone.level === "section" ? sectionLabel : detailTitle}
+            {!isPhone || phone.level === "section" ? sectionLabel : detailTitle}
           </strong>
           <nav aria-label={t("settings.title")} className="settings-section-tabs">
             {sections.map((item) => {
@@ -629,38 +274,7 @@ export function SettingsPanel({
         </div>
 
         <main ref={mainRef} className="settings-dialog-main">
-          {isPhone && phone.level === "home" && (
-            <nav aria-label={t("settings.title")} className="settings-phone-home">
-              {sections.map((item) => {
-                const disabled = item.requiresProject && !cwd;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="settings-phone-home-item"
-                    disabled={disabled}
-                    aria-describedby={disabled ? `settings-phone-home-${item.id}-note` : undefined}
-                    onClick={() => openSectionFromHome(item.id)}
-                  >
-                    <SettingsSectionIcon section={item.id} size={20} />
-                    <span className="settings-phone-home-label">
-                      <span>{item.label}</span>
-                      {disabled && (
-                        <span id={`settings-phone-home-${item.id}-note`} className="settings-phone-home-note">
-                          {t("settings.projectRequired")}
-                        </span>
-                      )}
-                    </span>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="settings-phone-home-chevron">
-                      <path d="m9 18 6-6-6-6" />
-                    </svg>
-                  </button>
-                );
-              })}
-            </nav>
-          )}
           <ConfigDetailNavigationContext.Provider value={detailNavigation}>
-          {sectionHost("general", <GeneralSettings sessionId={sessionId} onSessionReloaded={onSessionReloaded} quoteSelectionEnabled={quoteSelectionEnabled} onQuoteSelectionChange={onQuoteSelectionChange} />)}
           {sectionHost("models", <ModelsConfig embedded cwd={cwd} onClose={onClose} />)}
           {/* Visited sections stay mounted, so the ones whose answer depends on trust take the page's
               status and load again in place when trusting changes it. */}

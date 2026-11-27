@@ -103,89 +103,39 @@ test("matches response model aliases and otherwise includes the provider", () =>
   assert.equal(getModelDisplayName("gateway", "unknown-model", names), "gateway/unknown-model");
 });
 
-test("previews the first thinking line and reveals the full text with the saved default", () => {
-  const previousWindow = globalThis.window;
-  try {
-    for (const expanded of [false, true]) {
-      globalThis.window = { localStorage: { getItem: () => String(expanded) } };
-      const html = renderToStaticMarkup(React.createElement(
-        I18nProvider,
-        null,
-        React.createElement(ThinkingBlock, {
-          block: { type: "thinking", thinking: "**Independent reasoning**\n\nDetailed second line." },
-          blockIndex: 2,
-          duration: 3,
-        }),
-      ));
-      assert.match(html, new RegExp(`aria-expanded="${expanded}"`));
-      assert.equal((html.match(/>[^<]*Independent reasoning[^<]*</g) ?? []).length, 1);
-      assert.equal(html.includes("Detailed second line."), expanded);
-      assert.match(html, /aria-label="思考: /);
-      assert.match(html, /3s/);
-    }
-  } finally {
-    if (previousWindow === undefined) delete globalThis.window;
-    else globalThis.window = previousWindow;
-  }
+test("previews the first thinking line and reveals the full text once expanded", () => {
+  const html = renderToStaticMarkup(React.createElement(
+    I18nProvider,
+    null,
+    React.createElement(ThinkingBlock, {
+      block: { type: "thinking", thinking: "**Independent reasoning**\n\nDetailed second line." },
+      blockIndex: 2,
+      duration: 3,
+    }),
+  ));
+  // A block starts collapsed; a click opens it.
+  assert.match(html, /aria-expanded="false"/);
+  assert.equal((html.match(/>[^<]*Independent reasoning[^<]*</g) ?? []).length, 1);
+  assert.equal(html.includes("Detailed second line."), false);
+  assert.match(html, /aria-label="思考: /);
+  assert.match(html, /3s/);
 });
 
 test("a reply's terminal escape sequences are not shown as text (#1753)", () => {
-  const previousWindow = globalThis.window;
-  try {
-    for (const expanded of [false, true]) {
-      globalThis.window = { localStorage: { getItem: () => String(expanded) } };
-      const html = renderToStaticMarkup(React.createElement(
-        I18nProvider,
-        null,
-        React.createElement(ThinkingBlock, {
-          block: { type: "thinking", thinking: "\x1b[38;5;5mThinking:\x1b[39m \x1b[39m\x1b[2mInteresting: a plan\nSecond\x1b[22m line" },
-          blockIndex: 0,
-        }),
-      ));
-      assert.doesNotMatch(html, /\x1b|\[\d+(?:;\d+)*m/);
-      assert.match(html, /思考: Thinking: Interesting: a plan/);
-      assert.equal(html.includes("Second line"), expanded);
-    }
-  } finally {
-    if (previousWindow === undefined) delete globalThis.window;
-    else globalThis.window = previousWindow;
-  }
+  const html = renderToStaticMarkup(React.createElement(
+    I18nProvider,
+    null,
+    React.createElement(ThinkingBlock, {
+      block: { type: "thinking", thinking: "\x1b[38;5;5mThinking:\x1b[39m \x1b[39m\x1b[2mInteresting: a plan\nSecond\x1b[22m line" },
+      blockIndex: 0,
+    }),
+  ));
+  assert.doesNotMatch(html, /\x1b|\[\d+(?:;\d+)*m/);
+  assert.match(html, /思考: Thinking: Interesting: a plan/);
+  assert.equal(html.includes("Second line"), false);
   const answer = renderMessage({ role: "assistant", content: [{ type: "text", text: "\x1b[1mDone\x1b[0m: **ok**" }] });
   assert.doesNotMatch(answer, /\x1b|\[\d+m/);
   assert.match(answer, /Done: <strong>ok<\/strong>/);
-});
-
-test("renders long expanded thinking in pieces and short thinking as one text node (#1196)", () => {
-  const previousWindow = globalThis.window;
-  globalThis.window = { localStorage: { getItem: () => "true" } };
-  const contentOf = (thinking) => {
-    const html = renderToStaticMarkup(React.createElement(
-      I18nProvider,
-      null,
-      React.createElement(ThinkingBlock, { block: { type: "thinking", thinking }, blockIndex: 0 }),
-    ));
-    return html.match(/overflow-wrap:anywhere">([\s\S]*)<\/div><\/div>$/)[1];
-  };
-  const piecesOf = (thinking) => {
-    const content = contentOf(thinking);
-    const pieces = [...content.matchAll(/<div>([^<]*)<\/div>/g)].map((match) => match[1]);
-    assert.equal(pieces.map((piece) => `<div>${piece}</div>`).join(""), content);
-    assert.ok(pieces.length > 1);
-    return pieces;
-  };
-  try {
-    assert.equal(contentOf("First <b>line</b>\n\nSecond line."), "First &lt;b&gt;line&lt;/b&gt;\n\nSecond line.");
-
-    // The block boundary stands in for the line break at a cut; a line with
-    // no break is cut with nothing left out.
-    const thinking = "Wait, let me check settings.json again.\n".repeat(2_000);
-    assert.equal(piecesOf(thinking).join("\n"), thinking);
-    const oneLine = "Wait, let me check settings.json again. ".repeat(2_000);
-    assert.equal(piecesOf(oneLine).join(""), oneLine);
-  } finally {
-    if (previousWindow === undefined) delete globalThis.window;
-    else globalThis.window = previousWindow;
-  }
 });
 
 test("shows deferred thinking previews without loading the full content", () => {

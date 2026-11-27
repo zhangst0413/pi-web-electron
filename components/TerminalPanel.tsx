@@ -3,11 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
-import { terminalFontSize, useChatAppearance } from "@/hooks/useChatAppearance";
 import { useI18n } from "@/hooks/useI18n";
 import { setTerminalTheme, useTerminalTheme } from "@/hooks/useTerminalTheme";
-import { subscribeFontPreferences } from "@/hooks/useFontPreferences";
-import { readFontWeight } from "@/lib/font-preferences";
 import { createTerminalWriter, terminalRequest } from "@/lib/terminal-client";
 import { pageId, trackEventSource } from "@/lib/page-debug";
 import {
@@ -30,6 +27,9 @@ interface Props {
   onClosed: () => void;
   onCloseError: () => void;
 }
+
+/** The terminal's font size; it follows the chat's default size as code blocks do. */
+const TERMINAL_FONT_SIZE = 13;
 
 function shouldAutofocusTerminal() {
   // On touch devices, let a real tap focus xterm and open the software keyboard.
@@ -56,9 +56,6 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
   const theme = useTerminalTheme();
   const themeRef = useRef(theme);
   themeRef.current = theme;
-  const fontSize = terminalFontSize(useChatAppearance().fontSize);
-  const fontSizeRef = useRef(fontSize);
-  fontSizeRef.current = fontSize;
   const refitRef = useRef<() => void>(() => {});
 
   const consumeModifiers = useCallback(() => {
@@ -106,14 +103,12 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
       const style = getComputedStyle(container);
       return {
         fontFamily: style.getPropertyValue("--font-mono").trim() || "monospace",
-        // Base weights stop at 600, so xterm's default bold (700) stays heavier.
-        fontWeight: readFontWeight(style.getPropertyValue("--font-mono-weight")),
       };
     };
     const terminal = new Terminal({
       cursorBlink: true,
       ...readTerminalFont(),
-      fontSize: fontSizeRef.current,
+      fontSize: TERMINAL_FONT_SIZE,
       lineHeight: 1.25,
       scrollback: 8000,
       screenReaderMode: true,
@@ -154,14 +149,6 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
     refitRef.current = fitAndResize;
     const resizeObserver = new ResizeObserver(fitAndResize);
     resizeObserver.observe(container);
-    const updateFont = () => {
-      if (disposed) return;
-      const font = readTerminalFont();
-      terminal.options.fontFamily = font.fontFamily;
-      terminal.options.fontWeight = font.fontWeight;
-      fitAndResize();
-    };
-    const unsubscribeFonts = subscribeFontPreferences(updateFont);
 
     const connect = () => {
       if (disposed || exited || !navigator.onLine) return;
@@ -247,7 +234,6 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
       events?.close();
       void writer.stop();
       resizeObserver.disconnect();
-      unsubscribeFonts();
       onData.dispose();
       onResize.dispose();
       window.removeEventListener("pagehide", pageHide);
@@ -263,14 +249,6 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
   useEffect(() => {
     if (terminalRef.current) terminalRef.current.options.theme = TERMINAL_XTERM_THEMES[theme];
   }, [theme]);
-
-  useEffect(() => {
-    const terminal = terminalRef.current;
-    if (!terminal || terminal.options.fontSize === fontSize) return;
-    // A refit sends the new cols/rows to the shell through onResize, as a font change does.
-    terminal.options.fontSize = fontSize;
-    refitRef.current();
-  }, [fontSize]);
 
   useEffect(() => {
     if (active && shouldAutofocusTerminal()) terminalRef.current?.focus();

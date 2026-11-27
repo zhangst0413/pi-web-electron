@@ -65,15 +65,8 @@ try {
     await page.emulateMedia({ colorScheme: "light" });
     await expectDark();
 
-    const sidebar = page.getByRole("button", { name: "Show sidebar", exact: true });
-    if (width <= 640) await sidebar.waitFor();
-    if (await sidebar.isVisible()) await sidebar.click();
-    await page.getByRole("button", { name: "Settings", exact: true }).click();
-    assert.equal(await page.getByRole("radiogroup").count(), 0, "Settings must not offer a theme picker");
     await expectDark();
-    await page.screenshot({ path: `${artifacts}/settings-${width}.png`, animations: "disabled" });
-    assert.deepEqual(errors, []);
-    console.log(`PASS ${width}px: fixed dark palette, contrast, no picker, ignores system scheme and stored preference`);
+    console.log(`PASS ${width}px: fixed dark palette, contrast, ignores system scheme and stored preference`);
     await context.close();
   }
 } finally {

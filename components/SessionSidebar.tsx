@@ -93,7 +93,6 @@ import {
   withoutReadMarks,
 } from "@/lib/unread-markers";
 import { isPageAttended, subscribePageAttention } from "@/lib/user-attention";
-import { useFilesPlacement } from "@/hooks/useFilesPlacement";
 import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
@@ -593,18 +592,15 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onSelectSid
   const explorerRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileExplorerRef = useRef<FileExplorerHandle>(null);
 
-  // The files below the sessions (desktop, by default: both in view, a
-  // separator between them, the files section foldable to its header row),
-  // or Sessions | Files tabs (the setting, and always on phones), each panel
-  // shown alone. Both layouts render the same elements in the same order,
-  // only attributes and a few rows of their own differ, so a switch (the
-  // setting, the phone breakpoint) never remounts the explorer, the tree or
-  // the picker. The tab, the folded section, the group choices and the
-  // pinned section start as the server renders them and are restored from
-  // browser storage after hydration; the layout's choice is read the same
-  // way (useFilesPlacement's server snapshot).
-  const filesPlacement = useFilesPlacement();
-  const stacked = !isMobile && filesPlacement === "below";
+  // The files below the sessions (a desktop: both in view, a separator
+  // between them, the files section foldable to its header row), or
+  // Sessions | Files tabs (a phone), each panel shown alone. Both layouts
+  // render the same elements in the same order, only attributes and a few
+  // rows of their own differ, so a switch (the phone breakpoint) never
+  // remounts the explorer, the tree or the picker. The tab, the folded
+  // section, the group choices and the pinned section start as the server
+  // renders them and are restored from browser storage after hydration.
+  const stacked = !isMobile;
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("sessions");
   const [filesCollapsed, setFilesCollapsed] = useState(false);
   const sessionsTabRef = useRef<HTMLButtonElement>(null);

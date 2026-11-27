@@ -32,12 +32,8 @@ Coverage:
 - Markdown, code blocks, and real tool-call/tool-result blocks render.
 - Chat width and font size persist, existing drafts resize, and short settings
   panels keep every language option reachable on desktop and mobile.
-- Interface/chat and monospace font lists and weights apply live, survive
-  refresh, sync between tabs and reset independently without changing width or
-  font size. Headings and Markdown emphasis retain their weights.
-- On a desktop the sidebar shows the files below the sessions; Settings ›
-  General › File browser brings back the Sessions | Files tabs and returns,
-  without remounting the file tree (its file search keeps its query).
+- On a desktop the sidebar shows the files below the sessions, with no tab
+  strip, and its file search works in place (`e2e/sidebar.mjs`).
 - Unknown sessions and paths outside the fixture project are rejected.
 - Sidebar sessions open in browser tabs (`session-navigation.mjs`, desktop
   Chromium, one context so tabs share storage): a plain click and Enter
@@ -58,7 +54,7 @@ Coverage:
   (visual viewport shrink, pan, a late height with no event) keeps the same
   filter focused and the list in the visible viewport. Native phone keyboards
   still need real-device verification.
-- Settings › Models drags a custom provider's models within it (never into
+- Models drags a custom provider's models within it (never into
   another provider) and moves them with Alt+↑/↓, keeps the moved row focused,
   keeps the selected model open and its row mounted while it is edited, sorts
   shown names once with A–Z, appends later additions, and saves only the changed array order

@@ -4,22 +4,21 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 
-// The tabs layout's markup (the desktop setting's other choice; phones),
-// rendered. useFilesPlacement's server snapshot is always "below", so the
-// hook is aliased to a fixture that answers "tab". The alias takes the
-// module's absolute path without its extension ("@/…" resolves first and is
-// never matched), in the form jiti compares it with: forward slashes and an
-// upper-case drive letter on Windows (#1211). It needs a process of its own:
-// SessionSidebar.test.mjs has already loaded the sidebar with the real hook,
-// and jiti shares Node's module cache.
-const placementHook = fileURLToPath(new URL("../hooks/useFilesPlacement", import.meta.url))
+// The tabs layout's markup (a phone's), rendered. useIsMobile answers false
+// on the server, so the hook is aliased to a fixture that answers true. The
+// alias takes the module's absolute path without its extension ("@/…"
+// resolves first and is never matched), in the form jiti compares it with:
+// forward slashes and an upper-case drive letter on Windows (#1211). It
+// needs a process of its own: SessionSidebar.test.mjs has already loaded the
+// sidebar with the real hook, and jiti shares Node's module cache.
+const isMobileHook = fileURLToPath(new URL("../hooks/useIsMobile", import.meta.url))
   .replaceAll("\\", "/")
   .replace(/^[a-z]:/, (drive) => drive.toUpperCase());
 const jiti = createJiti(import.meta.url, {
   jsx: { runtime: "automatic" },
   tsconfigPaths: true,
   alias: {
-    [placementHook]: fileURLToPath(new URL("./__fixtures__/files-placement-tab.mjs", import.meta.url)),
+    [isMobileHook]: fileURLToPath(new URL("./__fixtures__/mobile-viewport.mjs", import.meta.url)),
   },
 });
 const React = await jiti.import("react");
@@ -53,11 +52,11 @@ function keyLabels(markup) {
 
 test("the fixture stands in for the whole hook module", async () => {
   // Everything the real module exports, so no importer of it breaks under the alias.
-  const hookSource = await readFile(new URL("../hooks/useFilesPlacement.ts", import.meta.url), "utf8");
-  const fixture = await import("./__fixtures__/files-placement-tab.mjs");
+  const hookSource = await readFile(new URL("../hooks/useIsMobile.ts", import.meta.url), "utf8");
+  const fixture = await import("./__fixtures__/mobile-viewport.mjs");
   const exported = [...hookSource.matchAll(/^export (?:const|function) (\w+)/gm)].map((match) => match[1]);
   assert.deepEqual(Object.keys(fixture).sort(), exported.sort());
-  assert.equal(fixture.useFilesPlacement(), "tab");
+  assert.equal(fixture.useIsMobile(), true);
 });
 
 test("the tabs layout renders its tabs, no brand and no files section header", () => {

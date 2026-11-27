@@ -1,11 +1,10 @@
 export const SETTINGS_SECTION_VALUES = [
-  "general",
   "models",
   "skills",
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTION_VALUES)[number];
-export type SettingsDetailSection = Exclude<SettingsSection, "general">;
+export type SettingsDetailSection = SettingsSection;
 
 const STORAGE_KEY = "pi-web:settings-navigation";
 // Sections that need a project to show anything.
@@ -69,13 +68,13 @@ export function getLastSettingsSection(
   cwd: string | null,
   storage: StorageLike | null = getBrowserStorage(),
 ): SettingsSection {
-  if (!storage) return "general";
+  if (!storage) return "models";
   try {
     const section = readState(storage).section;
-    if (!isSettingsSection(section)) return "general";
-    return settingsSectionRequiresProject(section) && !cwd ? "general" : section;
+    if (!isSettingsSection(section)) return "models";
+    return settingsSectionRequiresProject(section) && !cwd ? "models" : section;
   } catch {
-    return "general";
+    return "models";
   }
 }
 

@@ -11,7 +11,6 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { checkFilePanel, checkLargeHtmlStorage, filePanelFixture, largeStorageFixture } from "./file-panel.mjs";
 import { checkExtensionDialogSizing, checkExtensionDialogs, extensionSource } from "./extension-dialog.mjs";
-import { checkChatAppearance } from "./chat-appearance.mjs";
 import { checkComposerFocus } from "./composer-focus.mjs";
 import { checkCodeBackground } from "./code-background.mjs";
 import { checkStreamingMetrics } from "./streaming-metrics.mjs";
@@ -19,7 +18,7 @@ import { checkModelDiscovery } from "./model-discovery.mjs";
 import { checkModelOrder } from "./model-order.mjs";
 import { checkModelContext } from "./model-context.mjs";
 import { checkModelSelector } from "./model-selector.mjs";
-import { checkFilesPlacement, showSidebarSessions } from "./sidebar.mjs";
+import { checkFilesBelowSessions, showSidebarSessions } from "./sidebar.mjs";
 import { checkSessionNavigation } from "./session-navigation.mjs";
 import { checkProjectNavigation, createProjectNavigationFixtures } from "./project-navigation.mjs";
 import { checkDirectoryPicker, createDirectoryPickerFixtures } from "./directory-picker.mjs";
@@ -513,7 +512,6 @@ try {
     if (viewport.width > 600) {
       await page.goto(`${base}/?session=${RICH}`, { waitUntil: "domcontentloaded" });
       await page.locator(".markdown-code-block pre").waitFor();
-      await checkChatAppearance(page);
       await page.setViewportSize(viewport);
       // Returning from the mobile breakpoint restores the desktop sidebar preference in an effect, so wait for the toggle to settle.
       const hideSidebar = page.getByRole("button", { name: "Hide sidebar", exact: true });
@@ -528,10 +526,9 @@ try {
         await page.waitForTimeout(200);
       }
       await hideSidebar.waitFor({ state: "visible" });
-      // The files sit below the sessions on a desktop; Settings › General ›
-      // File browser brings the tabs back, and goes back.
-      await checkFilesPlacement(page);
-      console.log("PASS: files below the sessions by default, tabs from Settings and back");
+      // The files sit below the sessions on a desktop, with no tabs.
+      await checkFilesBelowSessions(page);
+      console.log("PASS: files below the sessions by default");
       await checkModelDiscovery(page);
     }
     await checkModelContext(page);

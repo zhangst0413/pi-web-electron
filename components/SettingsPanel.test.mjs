@@ -11,9 +11,9 @@ test("the trust dialog 设置 › MCP opens stacks above 设置", () => {
 });
 
 test("signing out removes the stored drafts once the server signed out", async () => {
-  const panelSource = await readFile(new URL("./SettingsPanel.tsx", import.meta.url), "utf8");
+  const buttonSource = await readFile(new URL("./SignOutButton.tsx", import.meta.url), "utf8");
   assert.match(
-    panelSource,
+    buttonSource,
     /if \(!response\.ok\) throw new Error\([^\n]*\);\n(?:\s*\/\/[^\n]*\n)*\s*clearStoredDrafts\(\);\n\s*window\.location\.replace\("\/login"\);/,
   );
 });

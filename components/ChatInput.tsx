@@ -29,10 +29,7 @@ import { FolderIcon, getFileIcon } from "./FileIcons";
 import { ImagePreview } from "./ImagePreview";
 import { DismissButton } from "./DismissButton";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useEnterSendMode } from "@/hooks/useEnterSendMode";
 import { useI18n } from "@/hooks/useI18n";
-import { useChatAppearance } from "@/hooks/useChatAppearance";
-import { useFontPreferences } from "@/hooks/useFontPreferences";
 import type { ToolPreset } from "@/lib/tool-presets";
 import { SelectorRow } from "./SelectorRow";
 import { ModelSelector, type ModelSelectorOption } from "./ModelSelector";
@@ -761,12 +758,9 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   compact = false,
 }: Props, ref) {
   const { t } = useI18n();
-  const { fontSize } = useChatAppearance();
-  const { ui: uiFontFamily, uiWeight } = useFontPreferences();
   const isMobile = useIsMobile();
   // The controls row under the composer: a finger's 44px on a phone.
   const controlSize = isMobile ? 44 : 32;
-  const enterSendMode = useEnterSendMode();
   const [value, setValue] = useState(() => (draftKey ? getDraft(draftKey)?.value ?? "" : ""));
   const [toolDropdownOpen, setToolDropdownOpen] = useState(false);
   const [thinkingDropdownOpen, setThinkingDropdownOpen] = useState(false);
@@ -1152,7 +1146,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     }
   }, []);
 
-  useLayoutEffect(resizeTextarea, [value, fontSize, uiFontFamily, uiWeight, resizeTextarea]);
+  useLayoutEffect(resizeTextarea, [value, resizeTextarea]);
 
   useEffect(() => {
     const ta = textareaRef.current;
@@ -1531,7 +1525,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
       const nativeEvent = e.nativeEvent;
       const enterKey = e.key === "Enter" && !e.shiftKey;
-      const sendShortcut = isMobile || enterSendMode === "ctrlEnter"
+      const sendShortcut = isMobile
         ? enterKey && (e.ctrlKey || e.metaKey)
         : enterKey;
       // Popup menus and the IME guard take plain Enter in either send mode on a
@@ -1666,7 +1660,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
         }
       }
     },
-    [isMobile, enterSendMode, isStreaming, onSteer, onFollowUp, onAbort, extensionUiOpen, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, handleSend, getNextSlashIndex, atMenuOpen, atQuery, atMatches, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value]
+    [isMobile, isStreaming, onSteer, onFollowUp, onAbort, extensionUiOpen, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, handleSend, getNextSlashIndex, atMenuOpen, atQuery, atMatches, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value]
   );
 
   const handleInput = useCallback(() => {
