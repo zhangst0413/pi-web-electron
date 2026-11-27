@@ -282,6 +282,18 @@ export function deleteProviderEntry<T extends ModelsConfigDraft>(
   return { ...config, providers };
 }
 
+/**
+ * Providers Add provider still offers besides the OpenAI / Anthropic compatible
+ * card: this build supports OpenCode Go and custom endpoints only, so every
+ * other provider the SDK catalog carries stays out of the picker.
+ */
+const ADDABLE_PROVIDER_IDS = new Set(["opencode-go"]);
+
+/** Add provider: whether a catalog provider is offered in this build. */
+export function isAddableProvider(id: string): boolean {
+  return ADDABLE_PROVIDER_IDS.has(id);
+}
+
 /** Add provider's search: a provider matches by its id or its shown name, case-insensitive. */
 export function providerMatchesSearch(search: string, id: string, label: string): boolean {
   const query = search.trim().toLowerCase();

@@ -7,6 +7,7 @@ const {
   collectModelRenames,
   deleteProviderEntry,
   hasModelCostDraftValue,
+  isAddableProvider,
   modelCostToDraft,
   modelDropIndex,
   modelSidebarLabel,
@@ -326,6 +327,13 @@ test("a new provider taking a renamed or deleted provider's old id stays untrack
   const readded = { providers: { ...afterDeletingSaved.providers, stepfun: {} } };
   renameProviderEntry(readded, state, "stepfun", "later");
   assert.deepEqual([...state.renames], []);
+});
+
+test("Add provider offers OpenCode Go and the custom endpoint card only", () => {
+  assert.equal(isAddableProvider("opencode-go"), true);
+  for (const id of ["anthropic", "openai", "github-copilot", "openai-codex", "llama.cpp"]) {
+    assert.equal(isAddableProvider(id), false);
+  }
 });
 
 test("Add provider's search matches a provider by id or name", () => {

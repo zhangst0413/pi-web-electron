@@ -15,6 +15,7 @@ import {
 } from "@/lib/settings-navigation";
 import {
   hasModelCostDraftValue,
+  isAddableProvider,
   modelCostToDraft,
   modelDropIndex,
   modelSidebarLabel,
@@ -1828,8 +1829,8 @@ function AddProviderPicker({
 
   const q = search.trim().toLowerCase();
 
-  const availableOAuth = oauthProviders.filter((p) => !p.loggedIn && providerMatchesSearch(q, p.id, p.name));
-  const availableApiKey = apiKeyProviders.filter((p) => !p.configured && providerMatchesSearch(q, p.id, p.displayName));
+  const availableOAuth = oauthProviders.filter((p) => isAddableProvider(p.id) && !p.loggedIn && providerMatchesSearch(q, p.id, p.name));
+  const availableApiKey = apiKeyProviders.filter((p) => isAddableProvider(p.id) && !p.configured && providerMatchesSearch(q, p.id, p.displayName));
   const showCustom = !q || "custom".includes(q) || "openai-compatible".includes(q) || "anthropic-compatible".includes(q);
 
   const totalCount = availableOAuth.length + availableApiKey.length + (showCustom ? 1 : 0);
