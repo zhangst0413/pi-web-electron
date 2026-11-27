@@ -124,9 +124,3 @@ export interface ProjectTrustStatus {
   decisionError?: string;
 }
 
-export interface AppUpdateResponse {
-  currentVersion: string;
-  latestVersion: string;
-  updateAvailable: boolean;
-  releaseUrl: string;
-}

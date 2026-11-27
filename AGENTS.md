@@ -98,7 +98,6 @@ app/api/
   skills/search/route.ts           POST skills.sh search
   web-auth/route.ts                GET status | POST login | DELETE logout (browser password)
   provider-usage/query/route.ts    POST provider usage quotas
-  app-update/route.ts              GET current vs latest published pi-web version
 ```
 
 ---

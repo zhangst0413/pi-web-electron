@@ -107,7 +107,6 @@ export const zhCNLocale: LocalePlugin = {
     "agentSwitcher.noMatches": "没有匹配的 Agent",
     "agentSwitcher.status.running": "运行中",
     "agentSwitcher.status.completed": "已完成",
-    "appUpdate.releaseNotes": "Pi Web v{version} 可用，查看更新说明",
     "sidebar.hide": "隐藏侧边栏",
     "sidebar.show": "显示侧边栏",
     "theme.light": "主题：浅色",
