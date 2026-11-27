@@ -93,6 +93,11 @@ type AutoNameStatus =
 
 // app/globals.css: 36px, 44px on a phone or touch screen.
 const TOP_BAR_ICON_BUTTON_SIZE = "var(--top-bar-height)";
+// The chat's top bar keeps only what acts on the chat: the branch navigator, the session stats and
+// the file-panel switch. These secondary controls stay out of the page: the full history, the
+// title generation, the Agents switcher, the system prompt, the tool definitions and the Debug
+// panel. The sidebar switch keeps its place on a phone, where the drawer has no other opener.
+const SHOW_TOP_BAR_EXTRAS = false;
 const AGENT_PANEL_WIDTH = 420;
 // pi's built-in tools that never change a file; any other tool may (#1144).
 const READ_ONLY_TOOL_NAMES = new Set(PRESET_READ_ONLY);
@@ -1824,6 +1829,7 @@ export function AppShell() {
     if (!mobile && !showChat) return null;
     return (
       <div style={{ display: "flex", alignItems: "stretch", height: "100%" }}>
+        {SHOW_TOP_BAR_EXTRAS && (<>
         <button
           type="button"
           onClick={() => {
@@ -1964,6 +1970,7 @@ export function AppShell() {
           );
         })()}
         {!(mobile && isNarrowMobile) && renderAgentsButton(mobile)}
+        </>)}
         {sessionHasBranches && (mobile ? (
           <button
             type="button"
@@ -2003,6 +2010,7 @@ export function AppShell() {
             hasSession
           />
         ))}
+        {SHOW_TOP_BAR_EXTRAS && (<>
         <button
           ref={systemBtnRef}
           type="button"
@@ -2075,6 +2083,7 @@ export function AppShell() {
           </svg>
           {!mobile && <span>{translate("tools.label")}</span>}
         </button>
+        </>)}
       </div>
     );
   };
@@ -2133,8 +2142,9 @@ export function AppShell() {
         className={mobile ? "mobile-session-stats" : undefined}
         data-mobile-toolbar-stats={mobile ? "true" : undefined}
         style={{
-          // The Debug button before it takes the free space (renderDebugButton).
-          marginLeft: 0,
+          // The Debug button before it took the free space (renderDebugButton); without it, the
+          // stats hold the bar's right end.
+          marginLeft: !mobile && !SHOW_TOP_BAR_EXTRAS ? "auto" : 0,
           display: "flex", alignItems: "center", justifyContent: "flex-end",
           flex: mobile ? 1 : undefined,
           minWidth: 0,
@@ -2242,7 +2252,7 @@ export function AppShell() {
   // Icon only, right of the chat's actions; on a desktop it takes the bar's free space, so it
   // sits left of the session stats. It only opens or closes its panel: nothing is loaded here.
   const renderDebugButton = (mobile: boolean) => {
-    if (!showChat) return null;
+    if (!showChat || !SHOW_TOP_BAR_EXTRAS) return null;
     const open = activeTopPanel === "debug";
     return (
       <button
@@ -2295,8 +2305,9 @@ export function AppShell() {
         aria-label={rightPanelOpen ? translate("files.hidePanel") : translate("files.showPanel")}
         data-mobile-toolbar-file={mobile ? "true" : undefined}
         style={{
-          // With a chat the Debug button is right-aligned instead (renderDebugButton).
-          marginLeft: !mobile && !showChat ? "auto" : 0,
+          // The Debug button is right-aligned instead (renderDebugButton); without it, this switch
+          // takes the free space only when no stats button precedes it.
+          marginLeft: !mobile && (!showChat || (!sessionStats && !contextUsage)) ? "auto" : 0,
           display: "flex", alignItems: "center", justifyContent: "center",
           width: TOP_BAR_ICON_BUTTON_SIZE, height: TOP_BAR_ICON_BUTTON_SIZE, padding: 0,
           visibility: covered ? "hidden" : "visible",
@@ -2459,9 +2470,10 @@ export function AppShell() {
 
       {/* Center: chat */}
       <div inert={rightPanelFullWidth} style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-        {/* Top bar with sidebar toggle */}
+        {/* Top bar */}
         <div ref={topBarRef} style={{ flexShrink: 0, background: "var(--bg-panel)" }}>
         <div style={{ display: "flex", alignItems: "center", position: "relative", borderBottom: "1px solid var(--border)", height: "calc(var(--top-bar-height) + env(safe-area-inset-top))", paddingTop: "env(safe-area-inset-top)" }}>
+          {isMobile && (
           <button
             onClick={handleSidebarToggle}
              title={sidebarOpen ? translate("sidebar.hide") : translate("sidebar.show")}
@@ -2485,6 +2497,7 @@ export function AppShell() {
               </svg>
             )}
           </button>
+          )}
           {isMobile && (
             <div
               ref={mobileToolbarRef}
@@ -2498,8 +2511,9 @@ export function AppShell() {
                 height: "100%",
               }}
             >
-              {isNarrowMobile && renderAgentsButton(true)}
-              {isNarrowMobile && (
+              {SHOW_TOP_BAR_EXTRAS && isNarrowMobile && renderAgentsButton(true)}
+              {/* Only the branch navigator is left of the chat's actions. */}
+              {isNarrowMobile && sessionHasBranches && (
                 <button
                   type="button"
                   onClick={handleMobileToolbarMoreToggle}
@@ -2545,8 +2559,8 @@ export function AppShell() {
                     top: 0,
                     right: 0,
                     bottom: 0,
-                    // Right of the Agents and More buttons, which stay in place.
-                    left: `calc(2 * ${TOP_BAR_ICON_BUTTON_SIZE})`,
+                    // Right of the More button, which stays in place.
+                    left: `calc(${SHOW_TOP_BAR_EXTRAS ? 2 : 1} * ${TOP_BAR_ICON_BUTTON_SIZE})`,
                     zIndex: 20,
                     display: "flex",
                     alignItems: "stretch",
