@@ -1,5 +1,0 @@
-{
-  "model": "deepseek-v4.1-flash",
-  "apiKey": "",
-  "dataDir": "./pi-chat-data"
-}

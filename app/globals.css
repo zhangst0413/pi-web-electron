@@ -1,0 +1,450 @@
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	height: 100%;
+	margin: 0;
+}
+
+body {
+	background: #111214;
+	color: #e6e6e8;
+	font: 14px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+textarea {
+	font: inherit;
+	color: inherit;
+}
+
+.app {
+	display: flex;
+	height: 100vh;
+}
+
+/* ---------------------------------------------------------------- sidebar */
+
+.sidebar {
+	width: 280px;
+	flex: none;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 12px;
+	background: #17181c;
+	border-right: 1px solid #26282e;
+}
+
+.sidebar-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.link {
+	background: none;
+	border: 0;
+	color: #8b93a3;
+	cursor: pointer;
+	padding: 0;
+}
+
+.button {
+	border: 1px solid #33363d;
+	background: #22242a;
+	border-radius: 6px;
+	padding: 6px 10px;
+	cursor: pointer;
+}
+
+.button:hover {
+	background: #2a2d34;
+}
+
+.button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.button.primary {
+	background: #3b6cf6;
+	border-color: #3b6cf6;
+	color: #fff;
+}
+
+.button.new {
+	width: 100%;
+}
+
+.button.stop {
+	background: #3a2222;
+	border-color: #7f3b3b;
+}
+
+.cwd {
+	width: 100%;
+	text-align: left;
+	border: 1px dashed #30333a;
+	background: none;
+	color: #9aa1ae;
+	border-radius: 6px;
+	padding: 6px 8px;
+	cursor: pointer;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.session-list {
+	flex: 1;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.session {
+	position: relative;
+	padding: 8px 10px;
+	border-radius: 6px;
+	cursor: pointer;
+}
+
+.session:hover {
+	background: #1e2025;
+}
+
+.session.active {
+	background: #262a33;
+}
+
+.session-title {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	padding-right: 16px;
+}
+
+.session-meta {
+	font-size: 12px;
+	color: #7b8290;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dot {
+	display: inline-block;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: #4ade80;
+	margin-right: 6px;
+}
+
+.remove {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	border: 0;
+	background: none;
+	color: #6b7280;
+	cursor: pointer;
+	visibility: hidden;
+}
+
+.session:hover .remove {
+	visibility: visible;
+}
+
+.hint {
+	color: #7b8290;
+	font-size: 12px;
+}
+
+/* ---------------------------------------------------------------- chat */
+
+.main {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+}
+
+.main > .placeholder {
+	margin: auto;
+	color: #7b8290;
+}
+
+.thread {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+}
+
+.viewport {
+	flex: 1;
+	overflow-y: auto;
+	padding: 24px 24px 8px;
+}
+
+.viewport > .placeholder {
+	padding: 20vh 0;
+	text-align: center;
+	color: #7b8290;
+}
+
+.message {
+	max-width: 820px;
+	margin: 0 auto;
+	padding: 8px 0;
+}
+
+.message.user {
+	display: flex;
+	justify-content: flex-end;
+}
+
+.message.user > div {
+	background: #262a33;
+	padding: 8px 12px;
+	border-radius: 10px;
+	max-width: 85%;
+}
+
+.plain {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.cursor {
+	display: inline-block;
+	width: 7px;
+	height: 15px;
+	background: #8b93a3;
+	vertical-align: text-bottom;
+	animation: blink 1s steps(2) infinite;
+}
+
+@keyframes blink {
+	50% {
+		opacity: 0;
+	}
+}
+
+/* ---------------------------------------------------------------- markdown */
+
+.markdown {
+	word-break: break-word;
+}
+
+.markdown > :first-child {
+	margin-top: 0;
+}
+
+.markdown > :last-child {
+	margin-bottom: 0;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown pre,
+.markdown table,
+.markdown blockquote {
+	margin: 0.6em 0;
+}
+
+.markdown pre {
+	background: #0c0d10;
+	border: 1px solid #26282e;
+	border-radius: 8px;
+	padding: 10px 12px;
+	overflow-x: auto;
+}
+
+.markdown code {
+	font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+	font-size: 12.5px;
+}
+
+.markdown :not(pre) > code {
+	background: #24262c;
+	border-radius: 4px;
+	padding: 1px 5px;
+}
+
+.markdown a {
+	color: #6ea8fe;
+}
+
+.markdown th,
+.markdown td {
+	border: 1px solid #2c2f37;
+	padding: 4px 8px;
+}
+
+.markdown blockquote {
+	padding-left: 10px;
+	border-left: 3px solid #30333a;
+	color: #9aa1ae;
+}
+
+/* ---------------------------------------------------------------- tools */
+
+.tool {
+	margin: 6px 0;
+	border: 1px solid #2a2d34;
+	border-radius: 8px;
+	overflow: hidden;
+}
+
+.tool.error {
+	border-color: #5b2b2b;
+}
+
+.tool-head {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	width: 100%;
+	padding: 6px 10px;
+	background: #1b1d22;
+	border: 0;
+	cursor: pointer;
+	text-align: left;
+}
+
+.tool-badge {
+	color: #4ade80;
+	width: 12px;
+	flex: none;
+}
+
+.tool.error .tool-badge {
+	color: #f87171;
+}
+
+.tool-name {
+	font-weight: 600;
+}
+
+.tool-summary {
+	color: #7b8290;
+	font-size: 12px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.tool-body {
+	margin: 0;
+	padding: 10px;
+	background: #0c0d10;
+	font-size: 12px;
+	overflow: auto;
+	max-height: 360px;
+}
+
+/* ---------------------------------------------------------------- composer */
+
+.error {
+	max-width: 820px;
+	margin: 0 auto 8px;
+	padding: 0 24px;
+	color: #f87171;
+}
+
+.composer {
+	display: flex;
+	gap: 8px;
+	align-items: flex-end;
+	width: 100%;
+	max-width: 820px;
+	margin: 0 auto;
+	padding: 12px 24px 20px;
+}
+
+.composer-input {
+	flex: 1;
+	resize: none;
+	min-height: 44px;
+	max-height: 200px;
+	padding: 10px 12px;
+	border-radius: 10px;
+	border: 1px solid #33363d;
+	background: #17181c;
+	outline: none;
+}
+
+.composer-input:focus {
+	border-color: #3b6cf6;
+}
+
+/* ---------------------------------------------------------------- settings */
+
+.overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.55);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 10;
+}
+
+.modal {
+	width: 420px;
+	max-width: calc(100vw - 32px);
+	background: #1b1d22;
+	border: 1px solid #2c2f37;
+	border-radius: 12px;
+	padding: 20px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.modal h2 {
+	margin: 0;
+	font-size: 16px;
+}
+
+.modal label {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	font-size: 12px;
+	color: #9aa1ae;
+}
+
+.modal input {
+	padding: 8px 10px;
+	border-radius: 6px;
+	border: 1px solid #33363d;
+	background: #111214;
+	outline: none;
+}
+
+.modal-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 4px;
+}
+
+.toast {
+	position: fixed;
+	left: 50%;
+	bottom: 24px;
+	transform: translateX(-50%);
+	background: #3a2222;
+	border: 1px solid #7f3b3b;
+	padding: 8px 14px;
+	border-radius: 8px;
+	font-size: 13px;
+}

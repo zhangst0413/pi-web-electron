@@ -1,44 +1,56 @@
-# pi-sdk-test
+# pi harness
 
-opencode-go 终端对话助手（单文件 `test.ts`）。
+极简的本地 coding agent harness，基于 **Next.js + Electron + pi SDK + assistant-ui**。
 
-## 运行（cmd / PowerShell 均可）
+## 功能
 
-```bat
-cd /d D:\mycode\workflow_project\pi-sdk-test
-node test.ts
+- 配置 `opencode-go` 的 API Key 与模型 ID
+- 选择 / 切换工作目录（桌面端打开原生目录选择器）
+- 多会话：新建、切换、删除；历史存为 JSONL，重启后可继续
+
+## 运行
+
+需要 Node.js 22.19+。
+
+```bash
+npm install
+
+# 桌面端：自动拉起 Next.js（没有构建产物时用 dev 模式）
+npm run desktop
+
+# 或者只跑 Web（浏览器打开 http://127.0.0.1:4311）
+npm run dev
+npm run build && npm run start
 ```
 
-需要 Node 22.19+，依赖已安装（`npm i @earendil-works/pi-coding-agent`）。
-
-## 配置
-
-编辑 `config.json`，无需环境变量：
-
-```json
-{
-  "model": "deepseek-v4.1-flash",
-  "apiKey": "sk-...",
-  "dataDir": "./data"
-}
-```
-
-- `model`：opencode-go 的模型 id，省略时为 `deepseek-v4.1-flash`。
-- `apiKey`：opencode-go 的 API key，必填。
-- `dataDir`：数据目录，相对路径按运行目录解析，默认 `./pi-chat-data`。
-
-`config.json` 不存在时会自动生成模板并提示填写。
+首次启动会弹出设置，填入 opencode-go API Key 和模型 ID（默认 `deepseek-v4.1-flash`），
+在侧边栏点击工作目录即可切换。
 
 ## 数据目录
 
+默认是仓库下的 `./data`，可用环境变量 `HARNESS_DATA` 覆盖：
+
 ```
 data/
-  auth.json          与 ~/.pi 隔离的 pi 凭据
-  sessions/*.jsonl   会话历史，每次启动自动续接最近一次会话
+  config.json          apiKey / model / cwd（明文，勿提交）
+  agent/auth.json      与 ~/.pi 隔离的 pi 凭据
+  sessions/*.jsonl     所有会话（跨工作目录）
 ```
 
-输入消息回车发送，输入 `/exit` 退出。
+## 代码结构
 
-## 注意
+```
+app/page.tsx                    会话列表、设置、目录选择
+components/chat.tsx             assistant-ui 聊天界面（external store runtime）
+app/api/config                  读写配置
+app/api/sessions                列出 / 新建会话
+app/api/sessions/[id]           发送消息、中止、删除
+app/api/sessions/[id]/events    SSE：sync / delta 事件
+lib/harness.ts                  pi SDK：模型运行时、活跃会话、消息映射
+electron/main.cjs               启动（或复用）Next 服务 + 窗口 + 目录选择 IPC
+electron/preload.cjs            暴露 window.harness.pickDirectory
+```
 
-`config.json` 里是明文 API key，不要提交到 git 或发给别人。
+一轮对话的流程：`POST /api/sessions/[id]` 在后台调用 `session.prompt()`，
+pi 的事件流被转换成 SSE：文本增量发 `delta`，消息/工具状态变化发全量 `sync`，
+客户端交给 `useExternalStoreRuntime` 渲染。工具调用结果会合并到对应的 tool-call part。
