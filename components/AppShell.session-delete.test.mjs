@@ -8,9 +8,9 @@ const source = await readFile(new URL("./AppShell.tsx", import.meta.url), "utf8"
 
 function handleSessionDeletedBody() {
   const start = source.indexOf("  const handleSessionDeleted = useCallback");
-  const end = source.indexOf("  const handleOpenFile = useCallback", start);
+  const end = source.indexOf("  // Side chat work opens in a right-panel tab", start);
   assert.notEqual(start, -1, "handleSessionDeleted callback not found");
-  assert.notEqual(end, -1, "handleOpenFile callback not found after handleSessionDeleted");
+  assert.notEqual(end, -1, "the next handler not found after handleSessionDeleted");
   return source.slice(start, end);
 }
 
@@ -64,7 +64,7 @@ test("an extension's session end leaves the session and closes only its panel", 
   const context = vm.createContext({
     useCallback: (callback) => callback,
     handleSessionDeleted: (id) => state.deleted.push(id),
-    handleCloseFileTab: (id) => state.closed.push(id),
+    handleClosePanelTab: (id) => state.closed.push(id),
   });
   vm.runInContext(stripTypeScriptTypes(`${source.slice(start, end)}
     handleSessionEnded("side-session");
@@ -106,7 +106,7 @@ test("a side chat's stored draft goes only once its delete succeeded", async () 
       useCallback: (callback) => callback,
       deleteSideChat: async () => refusal,
       clearDraft: (id) => cleared.push(id),
-      handleCloseFileTab() {},
+      handleClosePanelTab() {},
       selectedSessionRef: { current: null },
       handleSelectSession() {},
       setRefreshKey() {},

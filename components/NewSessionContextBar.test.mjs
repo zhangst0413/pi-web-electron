@@ -92,7 +92,7 @@ test("client code stays parseable by Safari 16.2 and its CSS flat", () => {
     assert.doesNotMatch(file, /\(\?<[=!]/, "no RegExp lookbehind");
   }
   const header = css.slice(css.indexOf(".new-session-hero-inner {"), css.indexOf("/* The project and worktree picker (ProjectWorktreePicker)"));
-  const rules = css.slice(css.indexOf(".new-session-hero-inner {"), css.indexOf(".file-viewer-icon-button {"));
+  const rules = css.slice(css.indexOf(".new-session-hero-inner {"), css.indexOf("/* syntax highlighter line numbers */"));
   assert.ok(header.length > 0 && rules.length > header.length);
   assert.doesNotMatch(rules.replace(/@media[^{]*\{/g, ""), /\{[^}]*\{|&/, "no nested rules");
   // The bar is pulled left by the project button's own padding, so its
@@ -104,5 +104,5 @@ test("client code stays parseable by Safari 16.2 and its CSS flat", () => {
   assert.equal(row[1], button[1]);
   // The inline boxes never take a share of the row (60% of a lone project
   // button, in a repo subdirectory, once left it 0px wide).
-  assert.doesNotMatch(rules.slice(0, rules.indexOf(".project-picker.is-stacked {")), /max-width: [1-9]\d?%/);
+  assert.doesNotMatch(rules.slice(0, rules.indexOf(".project-picker.is-row {")), /max-width: [1-9]\d?%/);
 });

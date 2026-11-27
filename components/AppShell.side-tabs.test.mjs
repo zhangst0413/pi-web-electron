@@ -26,20 +26,19 @@ test("switching main sessions swaps their side tabs", () => {
     selectedSession: { id: "main-b" },
     sideTabOwnerRef: { current: "main-a" },
     sideTabsReadyRef: { current: true },
-    sideTabsSavedOnWorkspaceSwitchRef: { current: false },
     agentTabs: [{ sessionId: "side-a", label: "A" }],
-    activeFileTabId: "agent:side-a",
+    activePanelTabId: "agent:side-a",
     rightPanelOpen: true,
     catalogLoaded: true,
     initialSessionRestored: true,
-    fileTabs: [], terminalTabs: [], sessionCatalog: sessions,
+    sessionCatalog: sessions,
     restoreSideTabs, sideTabsKey,
     window: { sessionStorage: { getItem: (key) => store.get(key) ?? null } },
     rememberSideTabs(key) {
-      store.set(sideTabsKey(key), JSON.stringify({ tabs: context.agentTabs, activeId: context.activeFileTabId, open: context.rightPanelOpen }));
+      store.set(sideTabsKey(key), JSON.stringify({ tabs: context.agentTabs, activeId: context.activePanelTabId, open: context.rightPanelOpen }));
     },
     setAgentTabs(value) { context.agentTabs = typeof value === "function" ? value(context.agentTabs) : value; },
-    setActiveFileTabId(value) { context.activeFileTabId = value; },
+    setActivePanelTabId(value) { context.activePanelTabId = value; },
     setRightPanelOpen(value) { context.rightPanelOpen = value; },
     useEffect(callback) { callback(); },
   });
@@ -47,14 +46,14 @@ test("switching main sessions swaps their side tabs", () => {
   run();
   assert.equal(context.sideTabOwnerRef.current, "main-b");
   assert.deepEqual(Array.from(context.agentTabs, (tab) => tab.sessionId), ["side-b"]);
-  assert.equal(context.activeFileTabId, "agent:side-b");
+  assert.equal(context.activePanelTabId, "agent:side-b");
   assert.equal(JSON.parse(store.get(sideTabsKey("main-a"))).activeId, "agent:side-a");
 
   context.activeSessionFamily = { root: { id: "main-a" } };
   context.selectedSession = { id: "main-a" };
   run();
   assert.deepEqual(Array.from(context.agentTabs, (tab) => tab.sessionId), ["side-a"]);
-  assert.equal(context.activeFileTabId, "agent:side-a");
+  assert.equal(context.activePanelTabId, "agent:side-a");
 });
 
 test("two unnamed side tabs match the Agents list regardless of open order", () => {
@@ -65,7 +64,7 @@ test("two unnamed side tabs match the Agents list regardless of open order", () 
     useCallback: (callback) => callback,
     tabs: [],
     setAgentTabs(update) { context.tabs = update(context.tabs); },
-    setActiveFileTabId() {}, setRightPanelOpen() {},
+    setActivePanelTabId() {}, setRightPanelOpen() {},
     isMobile: false,
   });
   const family = [
@@ -76,32 +75,4 @@ test("two unnamed side tabs match the Agents list regardless of open order", () 
   open("side-b", sideChatTitle(family[1], "Side chat", family));
   open("side-a", sideChatTitle(family[0], "Side chat", family));
   assert.deepEqual(Array.from(context.tabs, (tab) => tab.label), ["Side chat 2", "Side chat 1"]);
-});
-
-test("a project switch keeps the side tabs and saves them under their session", () => {
-  const start = source.indexOf("  const changeFileWorkspace = useCallback(");
-  const end = source.indexOf("  // Same @mention format", start);
-  assert.ok(start !== -1 && end > start);
-  const store = new Map();
-  const context = vm.createContext({
-    useCallback: (callback) => callback,
-    activeFileTabId: "agent:side-a",
-    agentTabs: [{ sessionId: "side-a", label: "A" }],
-    fileTabs: [], rightPanelOpen: true,
-    fileWorkspaceStatesRef: { current: new Map() },
-    fileWorkspaceGenerationRef: { current: 0 },
-    sideTabsReadyRef: { current: true },
-    sideTabOwnerRef: { current: "main-a" },
-    sideTabsSavedOnWorkspaceSwitchRef: { current: false },
-    switchFileWorkspace: () => ({ tabs: [], activeTabId: null, open: false }),
-    rememberSideTabs(key) { store.set(key, context.agentTabs); },
-    setFileWorkspaceGeneration() {}, setFileTabs() {},
-    setAgentTabs(update) { context.agentTabs = update(context.agentTabs); },
-    setActiveFileTabId(value) { context.activeFileTabId = value; },
-    setRightPanelOpen(value) { context.rightPanelOpen = value; },
-  });
-  vm.runInContext(`${stripTypeScriptTypes(source.slice(start, end))}\nchangeFileWorkspace("/a", "/b")`, context);
-  assert.deepEqual(Array.from(context.agentTabs, (tab) => tab.sessionId), ["side-a"]);
-  assert.deepEqual(Array.from(store.get("main-a"), (tab) => tab.sessionId), ["side-a"]);
-  assert.equal(context.sideTabsSavedOnWorkspaceSwitchRef.current, true);
 });

@@ -20,7 +20,6 @@ function renderMarkdown(markdown, props = {}) {
       null,
       React.createElement(MarkdownBody, {
         cwd: "/home/me/project",
-        onOpenFile() {},
         ...props,
       }, markdown),
     ),
@@ -28,18 +27,18 @@ function renderMarkdown(markdown, props = {}) {
 }
 
 test("a document reader keeps local links in the page without an href", () => {
-  const local = renderMarkdown("[relative](references/setup.md#config) [anchor](#config) [outside](../outside.md) [absolute](/etc/test.md) [attachment](image.png)", { onOpenFile: undefined, onNavigateLink() {} });
+  const local = renderMarkdown("[relative](references/setup.md#config) [anchor](#config) [outside](../outside.md) [absolute](/etc/test.md) [attachment](image.png)", { onNavigateLink() {} });
   assert.equal((local.match(/<a role="link" tabindex="0">/g) ?? []).length, 5);
   assert.doesNotMatch(local, /href=|target=|\snode=/);
-  const external = renderMarkdown("[web](https://example.com) [mail](mailto:hello@example.com) [bad](javascript:alert%281%29)", { onOpenFile: undefined, onNavigateLink() {} });
+  const external = renderMarkdown("[web](https://example.com) [mail](mailto:hello@example.com) [bad](javascript:alert%281%29)", { onNavigateLink() {} });
   assert.equal((external.match(/target="_blank" rel="noopener noreferrer"/g) ?? []).length, 3);
   assert.doesNotMatch(external, /role="link"|javascript:|alert%28/);
   // Chat keeps its links as they were.
-  assert.match(renderMarkdown("[relative](references/setup.md)", { onOpenFile: undefined }), /<a href="references\/setup.md" target="_blank"/);
+  assert.match(renderMarkdown("[relative](references/setup.md)"), /<a href="references\/setup.md" target="_blank"/);
 });
 
 test("a document reader keeps HTML anchor destinations and link labels", () => {
-  const html = renderMarkdown('<a id="install"></a>\n\n<a href="guide.md" title="Read setup" aria-label="Setup guide">Next</a>\n\n[Jump](guide.md "Read the setup guide")', { onOpenFile: undefined, onNavigateLink() {} });
+  const html = renderMarkdown('<a id="install"></a>\n\n<a href="guide.md" title="Read setup" aria-label="Setup guide">Next</a>\n\n[Jump](guide.md "Read the setup guide")', { onNavigateLink() {} });
   assert.match(html, /<a id="user-content-install" target="_blank" rel="noopener noreferrer"><\/a>/);
   assert.match(html, /<a title="Read setup" aria-label="Setup guide" role="link" tabindex="0">Next<\/a>/);
   assert.match(html, /<a title="Read the setup guide" role="link" tabindex="0">Jump<\/a>/);
@@ -97,43 +96,38 @@ test("opens non-file markdown links in a safe new tab", () => {
 });
 
 test("opens desktop app links like other external links (#1108)", () => {
-  for (const props of [{}, { onOpenFile: undefined }]) {
-    const html = renderMarkdown("[note](obsidian://open?vault=notes)", props);
+  const html = renderMarkdown("[note](obsidian://open?vault=notes)");
 
-    assert.match(
-      html,
-      /<a (?=[^>]*href="obsidian:\/\/open\?vault=notes")(?=[^>]*target="_blank")(?=[^>]*rel="noopener noreferrer")[^>]*>note<\/a>/,
-    );
-  }
+  assert.match(
+    html,
+    /<a (?=[^>]*href="obsidian:\/\/open\?vault=notes")(?=[^>]*target="_blank")(?=[^>]*rel="noopener noreferrer")[^>]*>note<\/a>/,
+  );
 });
 
-test("keeps local file markdown links in the app", () => {
+test("local file links stay plain links, never the app's own URL", () => {
   const relativeHtml = renderMarkdown("[file](components/MarkdownBody.tsx)");
   const fileUrlHtml = renderMarkdown("[report](file:///home/me/project/report.html)");
 
-  assert.match(relativeHtml, /<a href="components\/MarkdownBody\.tsx">file<\/a>/);
-  assert.doesNotMatch(relativeHtml, /target=|rel=|\snode=/);
-  assert.match(fileUrlHtml, /<a href="file:\/\/\/home\/me\/project\/report\.html">report<\/a>/);
-  assert.doesNotMatch(fileUrlHtml, /target=|rel=|\snode=/);
+  assert.match(relativeHtml, /<a href="components\/MarkdownBody\.tsx" target="_blank" rel="noopener noreferrer">file<\/a>/);
+  assert.match(fileUrlHtml, /<a href="" target="_blank" rel="noopener noreferrer">report<\/a>/);
 });
 
-test("keeps Windows drive report links in chat and user messages", () => {
+test("Windows drive links normalize and stay inert", () => {
   for (const keepLineBreaks of [false, true]) {
     for (const url of ["C:/reports/REPORT.md", "/C:/reports/REPORT.md", "d:/报告 one%20%2520.md:12:3#片段"]) {
       const normalized = `file:///${url.replace(/^\//, "")}`;
       const expected = renderMarkdown(`[report](<${normalized}>)`, { keepLineBreaks });
       assert.equal(renderMarkdown(`[report](<${url}>)`, { keepLineBreaks }), expected);
-      assert.equal(renderMarkdown(`[report][ref]\n\n[ref]: <${url}>`, { keepLineBreaks }), expected);
-      assert.match(expected, /href="file:\/\/\//);
-      assert.doesNotMatch(expected, /target=|rel=/);
-      const inert = renderMarkdown(`[report](<${url}>)`, { keepLineBreaks, onOpenFile: undefined });
-      assert.match(inert, /<a href="" target="_blank" rel="noopener noreferrer">report<\/a>/);
+      assert.equal(renderMarkdown(`[report][ref]
+
+[ref]: <${url}>`, { keepLineBreaks }), expected);
+      assert.match(expected, /<a href="" target="_blank" rel="noopener noreferrer">report<\/a>/);
     }
   }
 });
 
-test("keeps file URLs inert without an in-app file handler", () => {
-  const html = renderMarkdown("[report](file:///home/me/project/report.html)", { onOpenFile: undefined });
+test("file URLs are inert", () => {
+  const html = renderMarkdown("[report](file:///home/me/project/report.html)");
 
   assert.match(html, /<a href="" target="_blank" rel="noopener noreferrer">report<\/a>/);
 });

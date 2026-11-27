@@ -36,7 +36,6 @@ import {
   debugVerdict,
   formatAgo,
   formatBytes,
-  formatCountdown,
   formatDebugDuration,
   formatDebugSeconds,
   formatSecondsCountdown,
@@ -702,7 +701,7 @@ function Meter({ pool, ctx }: { pool: DebugPool; ctx: Ctx }) {
             className={badgeClass({ tone: slot.connecting ? "warning" : slot.chat ? "accent" : "muted", filled: slot.chat, dashed: slot.connecting }, "debug-slot")}
             title={debugSlotTitle(slot, now, t, titleOf)}
           >
-            {slot.kind === "agent" ? "SSE" : t(SLOT_TEXT_KEYS[slot.kind])}
+            {"SSE"}
           </span>
         ) : (
           <span key={`empty:${index}`} className="debug-slot is-empty" />
@@ -713,12 +712,6 @@ function Meter({ pool, ctx }: { pool: DebugPool; ctx: Ctx }) {
     </div>
   );
 }
-
-/** A meter slot's word for what is not an agent stream ("SSE"). */
-const SLOT_TEXT_KEYS: Record<Exclude<DebugPoolSlot["kind"], "agent">, string> = {
-  "file-watch": "debug.box.file",
-  terminal: "debug.box.terminal",
-};
 
 const STREAM_DOTS: Record<DebugEventConnectionSnapshot["state"], { tone: DebugTone; ring: boolean }> = {
   connected: { tone: "ok", ring: false },
@@ -926,23 +919,6 @@ function ServerHead({ reply, ctx }: { reply: DebugSnapshotResponse | null; ctx: 
     idle: global.idleTimeoutMs > 0 ? formatDebugDuration(global.idleTimeoutMs, t) : t("debug.server.idleDisabled"),
     heartbeat: formatDebugDuration(global.heartbeatMs, t),
   })}\n${wrappers}`;
-  const terminals = global.terminals;
-  const terminalsLabel = join([
-    `${t("debug.global.terminals")}: ${t("debug.global.terminalsValue", {
-      count: terminals.count,
-      listeners: terminals.listeners,
-      detached: terminals.detached,
-      exited: terminals.exited,
-    })}`,
-    terminals.nextCleanupAt !== null && t("debug.global.cleanup", { time: formatCountdown(clock.remaining(terminals.nextCleanupAt), t) }),
-  ]);
-  // Detached shells first (dashed), then exited ones (faint), then the rest.
-  const terminalItems: BadgeItem[] = Array.from({ length: terminals.count }, (_, index) => {
-    if (index < terminals.detached) return { tone: "dim", dashed: true, title: terminalsLabel };
-    if (index < terminals.detached + terminals.exited) return { tone: "muted", faded: true, title: terminalsLabel };
-    return { tone: "muted", title: terminalsLabel };
-  });
-  const watchesLabel = `${t("debug.global.fileWatches")}: ${global.fileWatches}`;
   const starting = global.wrappers.starting;
   return (
     <div className="debug-col-head debug-server-head">
@@ -960,13 +936,6 @@ function ServerHead({ reply, ctx }: { reply: DebugSnapshotResponse | null; ctx: 
           {starting > 4 && <span className="debug-run-more">{`+${starting - 4}`}</span>}
         </span>
       )}
-      <BadgeRun
-        text={t("debug.box.file")}
-        items={Array.from({ length: global.fileWatches }, () => ({ tone: "muted" as const, title: watchesLabel }))}
-        cap={4}
-        label={watchesLabel}
-      />
-      <BadgeRun text={t("debug.box.terminal")} items={terminalItems} cap={4} label={terminalsLabel} />
     </div>
   );
 }
@@ -974,7 +943,7 @@ function ServerHead({ reply, ctx }: { reply: DebugSnapshotResponse | null; ctx: 
 /**
  * The pages holding the server's event streams, one row each: who it is (browser and system
  * marks and words, its reported address), which page, and how many SSE connections it holds of
- * every kind (the agent's, terminals', file watches'; each takes one of the browser's), with the
+ * the agent's (each takes one of the browser's), with the
  * server's total in the head. This page first, on the current row's tint. What a page is lives
  * here once rather than in every badge of every session it holds.
  */
@@ -993,12 +962,10 @@ function PageList({ reply, ctx }: { reply: DebugSnapshotResponse | null; ctx: Ct
       {holders.map((entry, index) => {
         const mine = entry.holder !== null && entry.holder === myHolder;
         const page = debugHolderLabel(entry.holder, myHolder, t);
-        const count = entry.agent + entry.terminal + entry.fileWatch;
+        const count = entry.agent;
         // By kind, as the page's own meter counts them.
         const kinds = join([
           entry.agent > 0 && `${t(DEBUG_SOURCE_KIND_KEYS.agent)} ${entry.agent}`,
-          entry.terminal > 0 && `${t(DEBUG_SOURCE_KIND_KEYS.terminal)} ${entry.terminal}`,
-          entry.fileWatch > 0 && `${t(DEBUG_SOURCE_KIND_KEYS["file-watch"])} ${entry.fileWatch}`,
         ]);
         return (
           <div

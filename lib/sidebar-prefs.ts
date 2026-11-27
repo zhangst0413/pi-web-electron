@@ -1,15 +1,12 @@
 /**
- * Per-browser sidebar preferences: the active tab (sessions or files), the
- * user's explicit project group expand/collapse choices, the archive view's
- * folded projects, whether the pinned section is collapsed, whether the files section below the sessions is
- * collapsed, whether the files tab or section lists ignored files, whether the
- * Git changes panel shows a flat list or a folder tree, and the folders the
- * worktree listing last found outside git.
+ * Per-browser sidebar preferences: the user's explicit project group
+ * expand/collapse choices, the archive view's folded projects, whether the
+ * pinned section is collapsed, and the folders the worktree listing last
+ * found outside git.
  * Best-effort localStorage, like the other sidebar memories: privacy mode or
  * quota errors fall back to defaults.
  */
 
-const SIDEBAR_TAB_STORAGE_KEY = "pi-web:sidebar-tab";
 const GROUP_EXPANSION_STORAGE_KEY = "pi-web:sidebar-groups-v2";
 /**
  * The group choices before v2. A group that stopped being current was saved
@@ -20,26 +17,27 @@ const GROUP_EXPANSION_STORAGE_KEY = "pi-web:sidebar-groups-v2";
 const LEGACY_GROUP_EXPANSION_STORAGE_KEY = "pi-web:sidebar-groups";
 const ARCHIVE_COLLAPSED_STORAGE_KEY = "pi-web:sidebar-archive-collapsed";
 const PINNED_COLLAPSED_STORAGE_KEY = "pi-web:sidebar-pins-collapsed";
-const SHOW_IGNORED_FILES_STORAGE_KEY = "pi-web:sidebar-files-show-ignored";
-const FILES_COLLAPSED_STORAGE_KEY = "pi-web:sidebar-files-collapsed";
-const CHANGES_VIEW_MODE_STORAGE_KEY = "pi-web:sidebar-changes-view-mode";
 const NON_GIT_CWDS_STORAGE_KEY = "pi-web:sidebar-non-git-cwds";
 /**
- * Keys nothing reads now: the sessions/explorer split's, which the two tabs
- * replaced, and the group choices before v2 (loadGroupExpansion reads them
- * only while v2 is missing).
+ * Keys nothing reads now: the sessions/explorer split's, the files section's
+ * and the group choices before v2 (loadGroupExpansion reads them only while
+ * v2 is missing).
  */
-const RETIRED_STORAGE_KEYS = ["pi-web:file-explorer:open", "pi-web:sidebar-session-pane-height", LEGACY_GROUP_EXPANSION_STORAGE_KEY];
+const RETIRED_STORAGE_KEYS = [
+  "pi-web:file-explorer:open",
+  "pi-web:sidebar-session-pane-height",
+  "pi-web:sidebar-tab",
+  "pi-web:sidebar-files-collapsed",
+  "pi-web:sidebar-files-height",
+  "pi-web:sidebar-files-show-ignored",
+  "pi-web:sidebar-changes-view-mode",
+  LEGACY_GROUP_EXPANSION_STORAGE_KEY,
+];
 
 /** Oldest choices are dropped beyond this many project keys. */
 const MAX_GROUP_EXPANSION_ENTRIES = 300;
 /** Oldest folders are dropped beyond this many. */
 const MAX_NON_GIT_CWDS = 50;
-
-export type SidebarTab = "sessions" | "files";
-
-/** Flat list (default) or folder tree for the Git changes panel. */
-export type ChangesViewMode = "list" | "tree";
 
 interface StorageLike {
   getItem(key: string): string | null;
@@ -56,24 +54,6 @@ function getBrowserStorage(): StorageLike | null {
   }
 }
 
-export function loadSidebarTab(storage: StorageLike | null = getBrowserStorage()): SidebarTab {
-  if (!storage) return "sessions";
-  try {
-    return storage.getItem(SIDEBAR_TAB_STORAGE_KEY) === "files" ? "files" : "sessions";
-  } catch {
-    return "sessions";
-  }
-}
-
-export function saveSidebarTab(tab: SidebarTab, storage: StorageLike | null = getBrowserStorage()): void {
-  if (!storage) return;
-  try {
-    storage.setItem(SIDEBAR_TAB_STORAGE_KEY, tab);
-  } catch {
-    // Persistence is best-effort.
-  }
-}
-
 /** Only boolean entries survive; "__proto__" is never a project key. */
 function cleanGroupExpansion(value: unknown): Record<string, boolean> {
   const result: Record<string, boolean> = {};
@@ -85,13 +65,6 @@ function cleanGroupExpansion(value: unknown): Record<string, boolean> {
   return result;
 }
 
-/**
- * The saved group choices. A browser without v2 yet takes the collapses of
- * the old key and saves them as v2 at once, so the old key can go
- * (forgetRetiredSidebarKeys, after this) and is never read again; its
- * expansions are dropped: the defaults (current and pinned projects open)
- * come back once.
- */
 export function loadGroupExpansion(storage: StorageLike | null = getBrowserStorage()): Record<string, boolean> {
   if (!storage) return {};
   try {
@@ -186,76 +159,11 @@ export function savePinnedCollapsed(
   }
 }
 
-/** The files tab's (or section's) ignored-files switch; off unless the browser saved it on. */
-export function loadShowIgnoredFiles(storage: StorageLike | null = getBrowserStorage()): boolean {
-  if (!storage) return false;
-  try {
-    return storage.getItem(SHOW_IGNORED_FILES_STORAGE_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
-export function saveShowIgnoredFiles(
-  show: boolean,
-  storage: StorageLike | null = getBrowserStorage(),
-): void {
-  if (!storage) return;
-  try {
-    storage.setItem(SHOW_IGNORED_FILES_STORAGE_KEY, String(show));
-  } catch {
-    // Persistence is best-effort.
-  }
-}
-
+/** The ignored-files switch of the old file browser; nothing reads it now (kept as a retired key). */
 /**
  * The files section below the sessions folded to its header row; open unless
  * the browser saved it folded. The tabs layout ignores it.
  */
-export function loadFilesCollapsed(storage: StorageLike | null = getBrowserStorage()): boolean {
-  if (!storage) return false;
-  try {
-    return storage.getItem(FILES_COLLAPSED_STORAGE_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
-export function saveFilesCollapsed(
-  collapsed: boolean,
-  storage: StorageLike | null = getBrowserStorage(),
-): void {
-  if (!storage) return;
-  try {
-    storage.setItem(FILES_COLLAPSED_STORAGE_KEY, String(collapsed));
-  } catch {
-    // Persistence is best-effort.
-  }
-}
-
-
-/** Flat list unless the browser saved tree mode for the Git changes panel. */
-export function loadChangesViewMode(storage: StorageLike | null = getBrowserStorage()): ChangesViewMode {
-  if (!storage) return "list";
-  try {
-    return storage.getItem(CHANGES_VIEW_MODE_STORAGE_KEY) === "tree" ? "tree" : "list";
-  } catch {
-    return "list";
-  }
-}
-
-export function saveChangesViewMode(
-  mode: ChangesViewMode,
-  storage: StorageLike | null = getBrowserStorage(),
-): void {
-  if (!storage) return;
-  try {
-    storage.setItem(CHANGES_VIEW_MODE_STORAGE_KEY, mode);
-  } catch {
-    // Persistence is best-effort.
-  }
-}
-
 /**
  * Folders the worktree listing last found outside any git repository, oldest
  * first. The sidebar knows them before its listing answers, after a reload

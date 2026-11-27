@@ -59,7 +59,7 @@ export interface NewSessionContext {
 /**
  * What a project/worktree picker shows (components/ProjectWorktreePicker.tsx):
  * a context without its cwd, or no project yet (a sidebar with no cwd, whose
- * files tab still offers every project).
+ * picker still offers every project).
  */
 export type ProjectWorktreeContext = Omit<NewSessionContext, "cwd" | "project"> & { project: ProjectChoice | null };
 

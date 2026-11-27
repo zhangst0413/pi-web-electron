@@ -44,9 +44,7 @@ function snapshot(extra = {}) {
       wrappers: { alive: 1, closing: 0, starting: 0 },
       eventStreams: { total: 1 },
       sseTotal: 1,
-      pages: [{ holder: "page-1", address: null, client: null, agent: 1, terminal: 0, fileWatch: 0 }],
-      fileWatches: 0,
-      terminals: { count: 0, listeners: 0, detached: 0, exited: 0, nextCleanupAt: null },
+      pages: [{ holder: "page-1", address: null, client: null, agent: 1 }],
     },
     sessions: [summary("s1", { eventStreams: 1, nextIdleCheckAt: 1_000_000 + 8 * MINUTE + 30 * SECOND })],
     session: null,
@@ -264,12 +262,12 @@ const ISSUE_CASES = [
     { id: "reader", tone: "error", text: t("debug.stream.readerFailed") }],
   ["the running poll failed", { page: { runningPoll: { count: 4, failures: 1, last: { at: LOCAL - 2 * SECOND, durationMs: 30, outcome: "error", httpStatus: 503 } } } },
     { id: "runningPoll", tone: "warning", text: "侧边栏轮询 · 失败 · HTTP 503 · 2秒前" }],
-  ["five of six connections", { page: { sources: [1, 2, 3, 4, 5].map((id) => source(id, id === 1 ? "agent" : "terminal", id === 1 ? "s1" : "/w")) } },
+  ["five of six connections", { page: { sources: [1, 2, 3, 4, 5].map((id) => source(id, "agent", id === 1 ? "s1" : "s2")) } },
     { id: "pool", tone: "warning", text: "本页面占用了 HTTP/1.1 每个源六个连接（所有标签页共用）中的 5 个" }],
-  ["six of six connections", { page: { sources: [1, 2, 3, 4, 5, 6].map((id) => source(id, id === 1 ? "agent" : "terminal", id === 1 ? "s1" : "/w")) } },
+  ["six of six connections", { page: { sources: [1, 2, 3, 4, 5, 6].map((id) => source(id, "agent", id === 1 ? "s1" : "s2")) } },
     { id: "pool", tone: "error", text: "本页面占用了 HTTP/1.1 每个源六个连接（所有标签页共用）中的 6 个" }],
-  ["a source keeps failing to connect", { page: { sources: [source(1, "agent", "s1"), source(2, "file-watch", "/work/app/a.ts", { state: "connecting", errors: 2 })] } },
-    { id: "source", tone: "warning", text: "文件监视 · a.ts · 连接中 · 打开 1 次 · 2 次错误" }],
+  ["a source keeps failing to connect", { page: { sources: [source(1, "agent", "s1"), source(2, "agent", "s2", { state: "connecting", errors: 2 })] } },
+    { id: "source", tone: "warning", text: "Agent · s2 · 连接中 · 打开 1 次 · 2 次错误" }],
   ["the stream's last error while it is down", { connection: { state: "retrying", lastError: { reason: "stale", message: null, at: LOCAL - 4 * SECOND }, retryDueAt: LOCAL + 3 * SECOND } },
     { id: "stream", tone: "error", text: "无响应（看门狗） · 4秒前 · 3秒后重试" }],
   ["the stream retries", { connection: { state: "retrying", retryDueAt: LOCAL + 3 * SECOND } },
@@ -302,14 +300,14 @@ for (const [name, input, expected] of ISSUE_CASES) {
 
 test("issues near their thresholds stay quiet", () => {
   // Retrying sources (the server down) hold no connection between attempts: no pool warning.
-  const retrying = [1, 2, 3, 4, 5].map((id) => source(id, "terminal", "/w", id === 1 ? {} : { state: "connecting" }));
+  const retrying = [1, 2, 3, 4, 5].map((id) => source(id, "agent", `s${id}`, id === 1 ? {} : { state: "connecting" }));
   assert.deepEqual(issuesOf({ page: { sources: retrying } }), [], "five sources, one open");
   assert.deepEqual(issuesOf({ page: { pollInFlightSince: LOCAL - 1500 } }), [], "a poll under 2 s");
   assert.deepEqual(issuesOf({ lease: { inFlightSince: LOCAL - 1500 } }), [], "a lease request under 2 s");
   assert.deepEqual(issuesOf({ connection: { lastSeenAt: LOCAL - 37 * SECOND } }), [], "under half the watchdog");
-  const four = [1, 2, 3, 4].map((id) => source(id, id === 1 ? "agent" : "file-watch", id === 1 ? "s1" : "/w/a"));
+  const four = [1, 2, 3, 4].map((id) => source(id, "agent", `s${id}`));
   assert.deepEqual(issuesOf({ page: { sources: four } }), [], "four of six");
-  const six = [1, 2, 3, 4, 5, 6].map((id) => source(id, id === 1 ? "agent" : "file-watch", id === 1 ? "s1" : "/w/a"));
+  const six = [1, 2, 3, 4, 5, 6].map((id) => source(id, "agent", `s${id}`));
   assert.deepEqual(issuesOf({ page: { sources: six, protocol: "h2" } }), [], "h2 has no six-connection limit");
   // The chat's own stream reconnecting is the stream's lines, not a source's.
   assert.deepEqual(issuesOf({ page: { sources: [source(1, "agent", "s1", { state: "connecting", errors: 3 })] } }), []);
@@ -400,32 +398,32 @@ test("the verdict: reading, paused, issues, waiting or OK", () => {
 
 test("the meter: 本页面's sources against HTTP/1.1's six, the chat's stream apart from a grace one", () => {
   const sources = [
-    source(4, "terminal", "/work/app"),
+    source(4, "agent", "s4"),
     source(1, "agent", "s1"),
     source(2, "agent", "s-old"),
-    source(3, "file-watch", "/work/app/a.ts", { state: "connecting", errors: 1 }),
+    source(3, "agent", "s3", { state: "connecting", errors: 1 }),
   ];
   const pool = state.poolSlots(sources, "http/1.1", "s1");
   assert.equal(pool.cap, 6);
   assert.deepEqual(pool.slots.map((slot) => [slot.id, slot.kind, slot.chat, slot.connecting]), [
     [1, "agent", true, false],
     [2, "agent", false, false],
-    [3, "file-watch", false, true],
-    [4, "terminal", false, false],
+    [3, "agent", false, true],
+    [4, "agent", false, false],
   ], "oldest first");
   assert.deepEqual([pool.mine, pool.overflow, pool.tone], [4, 0, "dim"]);
-  assert.deepEqual(pool.kinds, { agent: 2, "file-watch": 1, terminal: 1 });
-  assert.deepEqual(state.debugPoolKindCounts(pool, t), ["Agent 2", "文件监视 1", "终端 1"]);
+  assert.deepEqual(pool.kinds, { agent: 4 });
+  assert.deepEqual(state.debugPoolKindCounts(pool, t), ["Agent 4"]);
 
-  const many = (count) => Array.from({ length: count }, (_, index) => source(index + 1, "file-watch", "/w/f"));
+  const many = (count) => Array.from({ length: count }, (_, index) => source(index + 1, "agent", `s${index + 1}`));
   assert.equal(state.poolSlots(many(5), "http/1.1", null).tone, "warning");
   const retrying = many(5).map((item, index) => (index === 0 ? item : { ...item, state: "connecting" }));
   assert.deepEqual([state.poolSlots(retrying, "http/1.1", null).mine, state.poolSlots(retrying, "http/1.1", null).tone], [5, "dim"],
     "drawn, but a source still connecting takes no connection");
   const full = state.poolSlots(many(8), "http/1.1", null);
   assert.deepEqual([full.slots.length, full.mine, full.overflow, full.tone], [6, 8, 2, "error"]);
-  assert.deepEqual(full.kinds, { agent: 0, "file-watch": 8, terminal: 0 }, "those past the six counted too");
-  assert.deepEqual(state.debugPoolKindCounts(full, t), ["文件监视 8"], "a kind it holds none of is left out");
+  assert.deepEqual(full.kinds, { agent: 8 }, "those past the six counted too");
+  assert.deepEqual(state.debugPoolKindCounts(full, t), ["Agent 8"]);
 
   const h2 = state.poolSlots(many(8), "h2", null);
   assert.deepEqual([h2.cap, h2.slots.length, h2.overflow, h2.tone, h2.protocol], [null, 8, 0, "dim", "h2"]);
@@ -438,12 +436,10 @@ test("a source's name and tooltip", () => {
   const titleOf = (id) => (id === "s1" ? "Fix login" : null);
   assert.equal(state.sourceDisplayLabel({ kind: "agent", label: "s1" }, titleOf), "Fix login");
   assert.equal(state.sourceDisplayLabel({ kind: "agent", label: "0123456789abcdef" }, titleOf), "01234567");
-  assert.equal(state.sourceDisplayLabel({ kind: "file-watch", label: "C:\\work\\app\\page.tsx" }), "page.tsx");
-  assert.equal(state.sourceDisplayLabel({ kind: "terminal", label: "/work/app/" }), "app");
-  assert.equal(state.sourceDisplayLabel({ kind: "terminal", label: null }), "—");
-  const [slot] = state.poolSlots([source(1, "file-watch", "/work/app/app.tsx", { createdAt: LOCAL - 4 * MINUTE - 12 * SECOND })], "http/1.1", null).slots;
-  assert.equal(state.debugSlotTitle(slot, LOCAL, t), "文件监视 · app.tsx · 已打开 · 打开 1 次 · 0 次错误 · 4分12秒前");
-  assert.equal(state.pageAgentStreamCount([source(1, "agent", "s1"), source(2, "agent", "s1"), source(3, "agent", "s2"), source(4, "file-watch", "s1")], "s1"), 2);
+  assert.equal(state.sourceDisplayLabel({ kind: "agent", label: null }, titleOf), "—");
+  const [slot] = state.poolSlots([source(1, "agent", "s1", { createdAt: LOCAL - 4 * MINUTE - 12 * SECOND })], "http/1.1", null).slots;
+  assert.equal(state.debugSlotTitle(slot, LOCAL, t, titleOf), "Agent · Fix login · 已打开 · 打开 1 次 · 0 次错误 · 4分12秒前");
+  assert.equal(state.pageAgentStreamCount([source(1, "agent", "s1"), source(2, "agent", "s1"), source(3, "agent", "s2")], "s1"), 2);
 });
 
 // ── Samples and scales ──

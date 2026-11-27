@@ -1,13 +1,13 @@
 "use client";
 
-import { createContext, Fragment, memo, useContext, useMemo, useState, type ComponentProps, type MouseEvent, type ReactNode } from "react";
+import { createContext, Fragment, memo, useContext, useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import { useI18n } from "@/hooks/useI18n";
 import { copyText } from "@/lib/clipboard";
-import { parsePdfPageFragment, resolveLocalFileHref, shouldOpenLocalFileInApp } from "@/lib/file-links";
+import { resolveLocalFileHref } from "@/lib/file-links";
 import { encodeFilePathForApi } from "@/lib/file-paths";
 import { isAudioPath, isVideoPath } from "@/lib/file-types";
-import { isExternalMarkdownHref, jumpToMarkdownFragment, markdownAppUrlTransform, markdownDocumentRehypePlugins, markdownRehypePlugins, markdownRemarkPlugins, markdownTextLayoutRemarkPlugins, markdownUrlTransform, markdownUserRemarkPlugins, normalizeDisplayMath } from "@/lib/markdown";
+import { isExternalMarkdownHref, jumpToMarkdownFragment, markdownAppUrlTransform, markdownDocumentRehypePlugins, markdownRehypePlugins, markdownRemarkPlugins, markdownTextLayoutRemarkPlugins, markdownUserRemarkPlugins, normalizeDisplayMath } from "@/lib/markdown";
 import { parseFenceBlock, splitMarkdownBlocks } from "@/lib/markdown-blocks";
 import { isPlantUmlLang } from "@/lib/plantuml";
 import { ImagePreview } from "./ImagePreview";
@@ -22,7 +22,6 @@ interface MarkdownBodyProps {
   className?: string;
   isStreaming?: boolean;
   cwd?: string;
-  onOpenFile?: (filePath: string, page?: number) => void;
   /** A document reader's own links: relative paths and `#headings` stay in the reader. */
   onNavigateLink?: (href: string) => void;
   /** Text the user typed: every line ending is a line break and raw HTML shows as text, as in pi's TUI. */
@@ -94,7 +93,7 @@ function MathDisplay({ source, children }: { source: string; children: ReactNode
 interface MarkdownBlockProps {
   markdown: string;
   remarkPlugins: typeof markdownRemarkPlugins;
-  urlTransform: typeof markdownUrlTransform;
+  urlTransform: typeof markdownAppUrlTransform;
   rehypePlugins: typeof markdownRehypePlugins;
   components: Components;
 }
@@ -121,7 +120,7 @@ function renderFence(lang: string, code: string, isStreaming: boolean | undefine
   return <CodeBlock code={code} lang={lang} isStreaming={isStreaming} />;
 }
 
-export const MarkdownBody = memo(function MarkdownBody({ children, className, isStreaming, cwd, onOpenFile, onNavigateLink, keepLineBreaks, keepTextLayout }: MarkdownBodyProps) {
+export const MarkdownBody = memo(function MarkdownBody({ children, className, isStreaming, cwd, onNavigateLink, keepLineBreaks, keepTextLayout }: MarkdownBodyProps) {
   const normalizedMarkdown = useMemo(() => normalizeDisplayMath(children), [children]);
   // A streaming reply grows by a few characters per chunk; parsing all of it
   // each time made a long reply quadratic. Its finished blocks keep their
@@ -173,29 +172,9 @@ export const MarkdownBody = memo(function MarkdownBody({ children, className, is
           </MarkdownLinkContext.Provider>
         );
       }
-      const filePath = onOpenFile ? resolveLocalFileHref(href, cwd) : null;
-      const openFile = onOpenFile;
-      if (!filePath || !openFile) {
-        return (
-          <MarkdownLinkContext.Provider value={true}>
-            <a href={href} {...props} target="_blank" rel="noopener noreferrer">
-              {children}
-            </a>
-          </MarkdownLinkContext.Provider>
-        );
-      }
-
-      const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
-        if (!shouldOpenLocalFileInApp(event)) return;
-        const target = event.currentTarget.getAttribute("target");
-        if (target && target !== "_self") return;
-        event.preventDefault();
-        openFile(filePath, parsePdfPageFragment(href) ?? undefined);
-      };
-
       return (
         <MarkdownLinkContext.Provider value={true}>
-          <a href={href} {...props} onClick={handleClick}>
+          <a href={href} {...props} target="_blank" rel="noopener noreferrer">
             {children}
           </a>
         </MarkdownLinkContext.Provider>
@@ -227,7 +206,7 @@ export const MarkdownBody = memo(function MarkdownBody({ children, className, is
         </div>
       );
     },
-  }), [cwd, isStreaming, onOpenFile, onNavigateLink]);
+  }), [cwd, isStreaming, onNavigateLink]);
 
   return (
     <div className={["markdown-body", className].filter(Boolean).join(" ")}>
@@ -242,7 +221,7 @@ export const MarkdownBody = memo(function MarkdownBody({ children, className, is
           key={index}
           markdown={block}
           remarkPlugins={keepTextLayout ? markdownTextLayoutRemarkPlugins : keepLineBreaks ? markdownUserRemarkPlugins : markdownRemarkPlugins}
-          urlTransform={onOpenFile ? markdownUrlTransform : markdownAppUrlTransform}
+          urlTransform={markdownAppUrlTransform}
           rehypePlugins={onNavigateLink ? markdownDocumentRehypePlugins : markdownRehypePlugins}
           components={components}
         />

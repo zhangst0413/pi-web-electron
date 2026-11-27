@@ -166,7 +166,7 @@ function page(extra = {}) {
     clientFailed: false,
     sources: [
       { id: 1, kind: "agent", label: "s1", state: "open", createdAt: LOCAL - 5 * MINUTE, opens: 1, errors: 0, lastOpenAt: LOCAL - 5 * MINUTE, lastErrorAt: null },
-      { id: 2, kind: "file-watch", label: "/work/app/a.ts", state: "open", createdAt: LOCAL - MINUTE, opens: 1, errors: 0, lastOpenAt: LOCAL - MINUTE, lastErrorAt: null },
+      { id: 2, kind: "agent", label: "s2", state: "open", createdAt: LOCAL - MINUTE, opens: 1, errors: 0, lastOpenAt: LOCAL - MINUTE, lastErrorAt: null },
     ],
     visibility: { state: "visible", trackingSince: LOCAL - 10 * MINUTE, lastHiddenAt: LOCAL - 2 * MINUTE, lastVisibleAt: LOCAL - MINUTE, hiddenCount: 1 },
     protocol: "http/1.1",
@@ -206,11 +206,9 @@ function reply() {
       eventStreams: { total: 3 },
       sseTotal: 5,
       pages: [
-        { holder: "page-other-456", address: "192.168.1.20", client: "Safari · iOS", agent: 2, terminal: 1, fileWatch: 0 },
-        { holder: "page-mine-123", address: "127.0.0.1", client: "Chrome · macOS", agent: 1, terminal: 0, fileWatch: 1 },
+        { holder: "page-other-456", address: "192.168.1.20", client: "Safari · iOS", agent: 2 },
+        { holder: "page-mine-123", address: "127.0.0.1", client: "Chrome · macOS", agent: 3 },
       ],
-      fileWatches: 1,
-      terminals: { count: 1, listeners: 1, detached: 0, exited: 0, nextCleanupAt: null },
     },
     sessions: [
       summary("other-session", { state: "closing" }),
@@ -267,7 +265,7 @@ test("a quiet page reads OK: no issue list, the meter's scale in its label, ever
   assert.match(html, /<span class="debug-panel-status is-muted"><span class="debug-dot is-ok" aria-hidden="true"><\/span><span class="debug-panel-status-text">正常<\/span><\/span>/);
   assert.doesNotMatch(html, /<ul/, "no issues, no list");
   // The meter's name says what its slots count: the slots' own titles are not read inside an image.
-  assert.ok(ariaLabels(html).includes("http/1.1 · 每个源六个连接，所有标签页共用 · 2/6 · Agent 1 · 文件监视 1"), ariaLabels(html).join("\n"));
+  assert.ok(ariaLabels(html).includes("http/1.1 · 每个源六个连接，所有标签页共用 · 2/6 · Agent 2"), ariaLabels(html).join("\n"));
   for (const key of ["page", "stream", "lease", "server"]) {
     assert.ok(html.includes(`>${t(`debug.section.${key}`)}<`), key);
   }
@@ -282,12 +280,12 @@ test("a quiet page reads OK: no issue list, the meter's scale in its label, ever
 });
 
 test("the meter names what it holds on h2 and with no protocol known, not a bare code and number", () => {
-  const terminal = { id: 3, kind: "terminal", label: "/work/app", state: "open", createdAt: LOCAL - 30 * SECOND, opens: 1, errors: 0, lastOpenAt: null, lastErrorAt: null };
-  const h2 = render({ page: page({ protocol: "h2", sources: [...page().sources, terminal] }) });
-  assert.ok(ariaLabels(h2).includes("本页面 · Agent 1 · 文件监视 1 · 终端 1 · h2"), ariaLabels(h2).join("\n"));
+  const extraSource = { id: 3, kind: "agent", label: "s3", state: "open", createdAt: LOCAL - 30 * SECOND, opens: 1, errors: 0, lastOpenAt: null, lastErrorAt: null };
+  const h2 = render({ page: page({ protocol: "h2", sources: [...page().sources, extraSource] }) });
+  assert.ok(ariaLabels(h2).includes("本页面 · Agent 3 · h2"), ariaLabels(h2).join("\n"));
   assert.match(h2, /<span class="debug-chip is-dim">h2<\/span>/);
   const unknown = render({ page: page({ protocol: null }) });
-  assert.ok(ariaLabels(unknown).includes("本页面 · Agent 1 · 文件监视 1 · 未知"));
+  assert.ok(ariaLabels(unknown).includes("本页面 · Agent 2 · 未知"));
   assert.doesNotMatch(unknown, /<span class="debug-chip is-dim">/);
 });
 
@@ -357,25 +355,23 @@ test("one boxed word per stream and provider: 本页面's first and filled, othe
     .map((match) => `${match[1]}: ${visibleText(match[2])}`);
   assert.deepEqual(rows, [
     "debug-page-row debug-list-head: 连接的页面 2 SSE 共 5 个",
-    "debug-page-row is-current: Chrome · macOS 127.0.0.1 本页面 2",
-    "debug-page-row: Safari · iOS 192.168.1.20 page-oth 3",
+    "debug-page-row is-current: Chrome · macOS 127.0.0.1 本页面 3",
+    "debug-page-row: Safari · iOS 192.168.1.20 page-oth 2",
   ]);
-  // Every SSE kind counts, each a connection of the browser's pool; the title says which.
+  // Every SSE kind counts, each a connection of the browser's pool; the title splits it by kind.
   assert.equal(pages.match(icons)?.length, 2, "two marks each, hidden from screen readers");
-  assert.ok(titles(pages).includes("其他页面 page-oth · Safari · iOS · 192.168.1.20 · SSE 3 · Agent 2 · 终端 1"), titles(pages).join("\n"));
-  assert.ok(titles(pages).includes("本页面 page-min · Chrome · macOS · 127.0.0.1 · SSE 2 · Agent 1 · 文件监视 1"));
+  assert.ok(titles(pages).includes("其他页面 page-oth · Safari · iOS · 192.168.1.20 · SSE 2 · Agent 2"), titles(pages).join("\n"));
+  assert.ok(titles(pages).includes("本页面 page-min · Chrome · macOS · 127.0.0.1 · SSE 3 · Agent 3"));
   // A page opened without a page id or a known browser still gets its row.
   const bare = reply();
   bare.server.sseTotal = 1;
-  bare.server.pages = [{ holder: null, address: null, client: null, agent: 1, terminal: 0, fileWatch: 0 }];
+  bare.server.pages = [{ holder: null, address: null, client: null, agent: 1 }];
   const bareRow = pageList(render({ server: server({ reply: bare }) }));
   assert.match(bareRow, /<span class="debug-page-icons"><\/span><span class="debug-page-client is-dim">未知浏览器<\/span><span class="debug-page-address">—<\/span><span class="debug-page-holder">无页面 ID<\/span>/);
   const strip = serverHead(html);
   assert.doesNotMatch(strip, />SSE</, "the head no longer lists streams");
   assert.doesNotMatch(html, /debug-divider/);
   assert.doesNotMatch(visibleText(section(html, "page", "server")), /\d\/6/);
-  assert.match(strip, /aria-label="文件监视: 1"><span class="debug-badge is-muted" title="文件监视: 1">文件<\/span><\/span>/);
-  assert.match(strip, /aria-label="终端: 1 [^"]*"><span class="debug-badge is-muted" title="终端: 1 [^"]*">终端<\/span><\/span>/);
   assert.ok(titles(strip).some((title) => title.startsWith("计时器: 空闲 10分00秒 · 心跳 15秒\n存活 3 · 关闭中 1 · 启动中 0")));
 });
 
@@ -428,10 +424,10 @@ test("a session row: up to three SSE and one 提供者 badge, then counts; 本�
   assert.match(narrow, /\.debug-row-badges \{\s*grid-column: 2 \/ -1;\s*grid-row: 2;\s*flex-wrap: wrap;/);
 });
 
-test("the meter's slots say what holds them: SSE, 文件, 终端; a connecting one dashed amber, empty ones dotted", () => {
+test("the meter's slots say what holds them: SSE, and the rest of the pool empty", () => {
   const extra = (id, kind, label, createdAt, state = "open") => ({ id, kind, label, state, createdAt, opens: 1, errors: 0, lastOpenAt: null, lastErrorAt: null });
-  const [chat, watch] = page().sources;
-  const sources = [chat, extra(3, "agent", "notes-1", LOCAL - 4 * MINUTE), watch, extra(4, "terminal", "/work/app", LOCAL - 30 * SECOND, "connecting")];
+  const [chat] = page().sources;
+  const sources = [chat, extra(3, "agent", "notes-1", LOCAL - 4 * MINUTE), extra(4, "agent", "s4", LOCAL - 30 * SECOND, "connecting")];
   const html = render({ page: page({ sources }) });
   const tile = section(html, "page", "server");
   const meterFrom = tile.indexOf('<span class="debug-meter"');
@@ -440,19 +436,19 @@ test("the meter's slots say what holds them: SSE, 文件, 终端; a connecting o
   assert.deepEqual(slots, [
     "debug-badge debug-slot is-accent is-filled: SSE",
     "debug-badge debug-slot is-muted: SSE",
-    "debug-badge debug-slot is-muted: 文件",
-    "debug-badge debug-slot is-warning is-dashed: 终端",
+    "debug-badge debug-slot is-warning is-dashed: SSE",
+    "debug-slot is-empty: ",
     "debug-slot is-empty: ",
     "debug-slot is-empty: ",
   ]);
-  assert.match(meter, /title="终端 · app · 连接中 · 打开 1 次 · 0 次错误 · 30秒前">终端</);
+  assert.match(meter, /title="Agent · s4 · 连接中 · 打开 1 次 · 0 次错误 · 30秒前">SSE</);
   assert.match(panelSource, /\.debug-slot\.is-empty \{\s*border: 1px dotted var\(--border\);/);
-  // The words follow the language; "SSE" stays as it is.
+  // "SSE" stays as it is in every language.
   const zh = (key, params) => interpolateMessage(zhCNLocale.messages[key], params);
   const zhHtml = render({ page: page({ sources }), t: zh });
   const zhFrom = zhHtml.indexOf('<span class="debug-meter"');
   const zhMeter = zhHtml.slice(zhFrom, zhHtml.indexOf("</div>", zhFrom));
-  assert.deepEqual([...zhMeter.matchAll(/class="debug-badge[^"]*"[^>]*>([^<]*)</g)].map((match) => match[1]), ["SSE", "SSE", "文件", "终端"]);
+  assert.deepEqual([...zhMeter.matchAll(/class="debug-badge[^"]*"[^>]*>([^<]*)</g)].map((match) => match[1]), ["SSE", "SSE", "SSE"]);
 });
 
 test("sessions on the server: grouped by project, the chat's first and not repeated, members under their root", () => {
@@ -676,7 +672,7 @@ test("the 调试 button only toggles its panel, left of the session stats", () =
   assert.match(button, /aria-label=\{translate\("debug\.title"\)\}/);
   assert.match(button, /aria-pressed=\{open\}/);
   assert.match(button, /data-mobile-toolbar-action=\{mobile \? "debug" : undefined\}/);
-  assert.match(button, /if \(!showChat\) return null;/);
+  assert.match(button, /if \(!showChat \|\| !SHOW_TOP_BAR_EXTRAS\) return null;/);
   assert.notEqual(zhCNLocale.messages["debug.title"], zhCNLocale.messages["session.title"], "e2e finds the stats button by its own name");
 
   // Desktop: after the chat's actions, right before the stats, taking the free space.
@@ -732,7 +728,7 @@ test("AppShell keeps the chat's reader in a ref and the panel open across sessio
   assert.match(shellSource, /onDebugSnapshotReaderChange=\{handleDebugSnapshotReaderChange\}/);
   assert.match(shellSource, /<DebugPanelBoundary fallback=\{translate\("debug\.failed"\)\}>\s*<DebugPanel\s/);
   assert.match(shellSource, /useEffect\(\(\) => \{\s*startPageVisibilityTracking\(\);\s*\}, \[\]\);/);
-  for (const [name, next] of [["handleCwdChange", "handleSelectSession"], ["handleSelectSession", "handleNewSession"], ["handleNewSession", "hydrateSelectedSession"], ["handleSessionDeleted", "handleOpenFile"]]) {
+  for (const [name, next] of [["handleCwdChange", "handleSelectSession"], ["handleSelectSession", "handleNewSession"], ["handleNewSession", "hydrateSelectedSession"], ["handleSessionDeleted", "handleOpenMemberTab"]]) {
     const body = between(shellSource, `const ${name} = useCallback`, `const ${next} = useCallback`);
     assert.match(body, /setActiveTopPanel\(\(panel\) => panel === "debug" \? panel : null\);/, name);
     assert.doesNotMatch(body, /setActiveTopPanel\(null\)/, name);

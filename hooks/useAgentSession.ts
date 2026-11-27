@@ -230,8 +230,6 @@ export interface UseAgentSessionOptions {
   onAgentEnd?: (end: AgentEndInfo) => void;
   /** An extension's `ctx.shutdown()` ended this session's runtime, as pi quits. Its file may remain. */
   onSessionEnded?: (sessionId: string) => void;
-  /** A top-level tool call finished; the files it touched may have changed. */
-  onToolEnd?: (toolName: string) => void;
   onAttentionNeeded?: (request: BlockingExtensionUiRequest) => void;
   onSessionCreated?: (session: SessionInfo, sourceDraftKey: string) => void;
   /** A fork to open. `session` is its row when it may belong to another project (a fork into another folder). */
@@ -450,7 +448,7 @@ type SlashCommandsResponse = {
 
 export function useAgentSession(opts: UseAgentSessionOptions) {
   const {
-    session, newSessionCwd, newSessionDraftKey, onAgentEnd, onSessionEnded, onToolEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSideSession,
+    session, newSessionCwd, newSessionDraftKey, onAgentEnd, onSessionEnded, onAttentionNeeded, onSessionCreated, onSessionForked, onSideSession,
     modelsRefreshKey, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsPanelOpen,
     onDebugSnapshotReaderChange,
   } = opts;
@@ -2196,7 +2194,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       case "tool_execution_end": {
         if (isNestedToolExecutionEvent(event)) break;
         const id = event.toolCallId as string;
-        onToolEnd?.(event.toolName as string);
         const endedAt = performance.now();
         setToolClocks((prev) => applyToolClockEvent(prev, event, endedAt));
         const result = toolResultFromExecutionEnd(event);
@@ -2278,7 +2275,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         setExtensionDialogs((queue) => removeExtensionUiRequest(queue, event.id as string));
         break;
     }
-  }, [addNotice, applyLiveUsage, opts.chatInputRef, cancelEventStreamGrace, dispatch, handleExtensionUiRequest, loadSession, markPromptLanded, notifyPromptStage, onAgentEnd, onSessionEnded, onToolEnd, refreshContextUsage, scheduleEventStreamClose, scrollToBottom, settleUiStage, syncLiveModel]);
+  }, [addNotice, applyLiveUsage, opts.chatInputRef, cancelEventStreamGrace, dispatch, handleExtensionUiRequest, loadSession, markPromptLanded, notifyPromptStage, onAgentEnd, onSessionEnded, refreshContextUsage, scheduleEventStreamClose, scrollToBottom, settleUiStage, syncLiveModel]);
   handleAgentEventRef.current = handleAgentEvent;
 
   const handleSend = useCallback(async (message: string, images?: AttachedImage[]) => {

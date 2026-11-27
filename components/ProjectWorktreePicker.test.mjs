@@ -28,7 +28,7 @@ const context = {
 
 function render(props = {}) {
   return renderToStaticMarkup(h(I18nProvider, null, h(ProjectWorktreePicker, {
-    layout: "stacked",
+    layout: "row",
     context,
     mobile: false,
     label: "项目和 worktree",
@@ -64,55 +64,38 @@ test("inline: the project's name and the branch as text, no path and no notes", 
   assert.doesNotMatch(render({ homeDir: "/home/me" }) + render({ layout: "row" }), /project-picker-name|<svg width="12"/);
 });
 
-test("row: the files' boxes below the sessions, side by side, with everything the stacked ones have", () => {
+test("row: the sidebar's two boxes side by side above the tree, whole paths and the worktree's notes", () => {
   const activity = new Map([["lib-key", { running: 1, unread: 0 }]]);
   const hint = { label: "打开仓库根目录", title: "打开仓库根目录以管理 worktree。" };
   const subdir = { ...context, worktrees: null, currentWorktreePath: null };
-  // The same markup as the files tab's but for the layout: the activity
-  // dot, the worktree hint, the menus' minimum width.
-  for (const props of [{ homeDir: "/home/me" }, { projectActivity: activity }, { context: subdir, worktreeHint: hint }]) {
-    const row = render({ ...props, layout: "row" });
-    assert.match(row, /^<div class="project-picker is-row" role="group" aria-label="项目和 worktree">/);
-    assert.equal(row.replace("project-picker is-row", "project-picker is-stacked"), render(props));
-  }
-  assert.match(render({ layout: "row", projectActivity: activity }), /project-picker-activity/);
-  assert.match(render({ layout: "row", context: subdir, worktreeHint: hint }), /project-picker-button is-inactive/);
-  // The main checkout's "main" note stays out of the row: there the box is a
-  // share of a narrow sidebar, and the branch needs the room (at 180px the
-  // note left it none); the icon, in the accent only for a linked checkout,
-  // still tells the main one. The tab and the bar keep the note.
-  const mainContext = { ...context, currentWorktreePath: "/home/me/work/app" };
-  const mainRow = render({ layout: "row", context: mainContext });
-  assert.match(mainRow, /class="project-picker-icon"[\s\S]*?<span class="project-picker-path"><span>main<\/span><\/span><span class="project-picker-note">2<\/span><svg/);
-  assert.doesNotMatch(mainRow, /project-picker-note">主分支</);
-  assert.doesNotMatch(mainRow, /is-linked/);
-  assert.match(render({ context: mainContext }), /<span class="project-picker-note">主分支<\/span>/);
-  assert.doesNotMatch(render({ layout: "inline", context: mainContext }), /project-picker-note/);
-});
-
-test("stacked: main's two boxes, the project's whole path and the worktree's branch with its notes", () => {
   const html = render({ homeDir: "/home/me" });
-  assert.match(html, /^<div class="project-picker is-stacked" role="group" aria-label="项目和 worktree">/);
+  assert.match(html, /^<div class="project-picker is-row" role="group" aria-label="项目和 worktree">/);
   // The project box is its path, cut at its left: no folder icon, no name, no chevron.
   assert.match(html, /<button type="button" class="project-picker-button is-project" title="\/home\/me\/work\/app" aria-haspopup="menu" aria-expanded="false"><span class="project-picker-path"><span>~\/work\/app<\/span><\/span><\/button>/);
   assert.doesNotMatch(html, /project-picker-divider|is-name/);
   // A linked checkout: its branch icon in the accent, the branch, how many checkouts there are.
   assert.match(html, /<svg width="11" height="11"[^>]*class="project-picker-icon is-linked"[\s\S]*?<\/svg><span class="project-picker-path"><span>feature\/x<\/span><\/span><span class="project-picker-note">2<\/span><svg width="9" height="9"[^>]*class="project-picker-chevron sidebar-icon-down"/);
-  // The main checkout says so, its icon not in the accent.
-  const main = render({ context: { ...context, currentWorktreePath: "/home/me/work/app" } });
-  assert.match(main, /class="project-picker-icon"[\s\S]*?<span class="project-picker-path"><span>main<\/span><\/span><span class="project-picker-note">主分支<\/span><span class="project-picker-note">2<\/span>/);
-  assert.doesNotMatch(main, /is-linked/);
+  // The main checkout's icon is not in the accent, and its row has no
+  // "main" note: the box is a share of a narrow sidebar, and the branch
+  // needs the room.
+  const mainRow = render({ context: { ...context, currentWorktreePath: "/home/me/work/app" } });
+  assert.match(mainRow, /class="project-picker-icon"[^>]*>[\s\S]*?<span class="project-picker-path"><span>main<\/span><\/span><span class="project-picker-note">2<\/span>/);
+  assert.doesNotMatch(mainRow, /project-picker-note">主分支</);
+  assert.doesNotMatch(mainRow, /is-linked/);
   // A checkout without a branch shows its path.
   const detached = render({ homeDir: "/home/me", context: { ...context, worktrees: [context.worktrees[0], { ...context.worktrees[1], branch: null }] } });
   assert.match(detached, /<span class="project-picker-path"><span>~\/work\/app-worktrees\/feature<\/span><\/span>/);
   // Without the home folder the path shows as it is.
   assert.match(render(), /<span class="project-picker-path"><span>\/home\/me\/work\/app<\/span><\/span>/);
-  assert.doesNotMatch(html, /style=/, "no inline styles");
+  assert.doesNotMatch(html, /style=|project-picker-name/, "no inline styles, no names");
+  // The activity dot and the worktree hint.
+  assert.match(render({ projectActivity: activity }), /project-picker-activity/);
+  assert.match(render({ context: subdir, worktreeHint: hint }), /project-picker-button is-inactive/);
 });
 
 test("a project the user named shows that name in its box, the path as the tooltip", () => {
   const named = { ...context, project: { ...context.project, alias: "Thermal <b>模型</b>" } };
-  for (const layout of ["stacked", "row"]) {
+  for (const layout of ["row"]) {
     const html = render({ layout, homeDir: "/home/me", context: named });
     assert.match(html, /<button type="button" class="project-picker-button is-project" title="\/home\/me\/work\/app" aria-haspopup="menu" aria-expanded="false"><span class="project-picker-label is-alias">Thermal &lt;b&gt;模型&lt;\/b&gt;<\/span><\/button>/);
     assert.doesNotMatch(html, /~\/work\/app<\/span>/);
@@ -123,7 +106,7 @@ test("a project the user named shows that name in its box, the path as the toolt
   assert.doesNotMatch(inline, /is-alias|~\/work\/app<\/span>/);
 });
 
-test("stacked: activity elsewhere shows a dot; the project in use does not count", () => {
+test("activity elsewhere shows a dot; the project in use does not count", () => {
   const elsewhere = render({ projectActivity: new Map([["lib-key", { running: 0, unread: 2 }]]) });
   assert.match(elsewhere, /<span class="project-picker-activity" role="img" title="有新活动" aria-label="有新活动"><\/span><\/button>/);
   assert.doesNotMatch(render({ projectActivity: new Map([["app-key", { running: 1, unread: 1 }]]) }), /project-picker-activity/);
@@ -132,7 +115,7 @@ test("stacked: activity elsewhere shows a dot; the project in use does not count
   assert.doesNotMatch(render({ layout: "inline", projectActivity: new Map([["lib-key", { running: 1, unread: 0 }]]) }), /project-picker-activity/);
 });
 
-test("stacked: no project yet, and no worktree list", () => {
+test("no project yet, and no worktree list", () => {
   const empty = render({ context: { project: null, worktrees: null, currentWorktreePath: null, projects: [] }, placeholder: "选择项目…" });
   assert.match(empty, /<button type="button" class="project-picker-button is-project is-empty" title="" aria-haspopup="menu" aria-expanded="false">/);
   assert.match(empty, /<span class="project-picker-label">选择项目…<\/span>/);
@@ -145,22 +128,22 @@ test("stacked: no project yet, and no worktree list", () => {
   assert.equal((subdir.match(/aria-haspopup="menu"/g) ?? []).length, 1, "one menu button");
   // A folder outside git gets no hint from the sidebar: the project box
   // alone, in the tab and in the row, where it takes the whole row.
-  for (const layout of ["stacked", "row"]) {
+  for (const layout of ["row", "inline"]) {
     const plain = render({ layout, context: { ...context, worktrees: null, currentWorktreePath: null } });
     assert.equal((plain.match(/<button /g) ?? []).length, 1, layout);
-    assert.doesNotMatch(plain, /is-inactive|project-picker-icon/, layout);
+    assert.doesNotMatch(plain, /is-inactive/, layout);
   }
   // The chips have no hint: the project alone.
   assert.doesNotMatch(render({ layout: "inline", context: { ...context, worktrees: null }, worktreeHint: hint }), /is-inactive|project-picker-divider/);
 });
 
-test("only the files tab removes worktrees, never the main one", () => {
+test("only the sidebar removes worktrees, never the main one", () => {
   assert.match(source, /secondary: onRemoveWorktree && !worktree\.isMain \? \{/);
 });
 
 test("client code stays parseable by Safari 16.2 and its CSS flat", () => {
   assert.doesNotMatch(source, /\(\?<[=!]/, "no RegExp lookbehind");
-  const rules = css.slice(css.indexOf("/* The project and worktree picker (ProjectWorktreePicker)"), css.indexOf(".file-viewer-icon-button {"));
+  const rules = css.slice(css.indexOf("/* The project and worktree picker (ProjectWorktreePicker)"), css.indexOf(".directory-picker-path:focus-visible {"));
   assert.ok(rules.length > 0);
   assert.doesNotMatch(rules.replace(/@media[^{]*\{/g, ""), /\{[^}]*\{|&/, "no nested rules");
 });

@@ -4,7 +4,6 @@
 import assert from "node:assert/strict";
 import { mkdirSync, realpathSync, symlinkSync } from "node:fs";
 import { join, sep } from "node:path";
-import { showSidebarFiles } from "./sidebar.mjs";
 
 /** Two sibling folders with distinct children, outside every session's cwd. */
 export function createDirectoryPickerFixtures(agentDir) {
@@ -56,9 +55,7 @@ export async function checkDirectoryPicker({ browser, base, fixture }) {
     const mounted = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/sessions");
     await page.goto(`${base}/`, { waitUntil: "domcontentloaded" });
     await mounted;
-    const files = page.locator("#session-sidebar-panel-files");
-    const project = files.locator(".project-picker-button.is-project").first();
-    await showSidebarFiles(page);
+    const project = page.locator("#session-sidebar-panel-sessions .project-picker-button.is-project").first();
 
     const openPicker = async () => {
       await project.click();
@@ -83,7 +80,7 @@ export async function checkDirectoryPicker({ browser, base, fixture }) {
       };
     };
     const projectIs = (path) => page.waitForFunction(
-      (expected) => document.querySelector("#session-sidebar-panel-files .project-picker-button.is-project")?.getAttribute("title") === expected,
+      (expected) => document.querySelector("#session-sidebar-panel-sessions .project-picker-button.is-project")?.getAttribute("title") === expected,
       path,
     );
 

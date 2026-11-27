@@ -1,23 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { getFileIcon } from "./FileIcons";
 import { useHorizontalStrip } from "@/hooks/useHorizontalStrip";
 import { useI18n } from "@/hooks/useI18n";
-import type { FileViewerDisplayMode, FileViewerState } from "@/lib/file-viewer-state";
 
+/** A right-panel tab: a side chat of the session in the chat. */
 export interface Tab {
   id: string;
   label: string;
-  filePath: string;
-  kind?: "terminal" | "side";
   closing?: boolean;
-  sourceSessionId?: string | null;
-  initialDisplayMode?: FileViewerDisplayMode;
-  /** PDF page requested by the link that opened this tab (`#page=N`). */
-  page?: number;
-  viewerState?: FileViewerState;
-  viewerRevision?: number;
 }
 
 interface Props {
@@ -60,7 +51,7 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, onReorderTa
           <div
             key={tab.id}
             role="tab"
-            aria-label={tab.kind === "terminal" ? t("terminal.tabLabel", { name: tab.label }) : tab.kind === "side" ? t("sideChat.tabLabel") : tab.label}
+            aria-label={t("sideChat.tabLabel")}
             aria-selected={isActive}
             draggable={Boolean(onReorderTab)}
             onDragStart={(event) => {
@@ -137,15 +128,9 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, onReorderTa
             }}
           >
             <span style={{ flexShrink: 0, opacity: isActive ? 1 : 0.7, display: "flex", alignItems: "center" }}>
-              {tab.kind === "terminal" ? (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
-                </svg>
-              ) : tab.kind === "side" ? (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M21 12a8 8 0 0 1-8 8H5.5a2 2 0 0 1-1.4-3.4A8 8 0 1 1 21 12z" />
-                </svg>
-              ) : getFileIcon(tab.label, 13)}
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 12a8 8 0 0 1-8 8H5.5a2 2 0 0 1-1.4-3.4A8 8 0 1 1 21 12z" />
+              </svg>
             </span>
             <span
               style={{
@@ -154,7 +139,7 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, onReorderTa
                 flex: 1,
                 fontWeight: isActive ? 500 : 400,
               }}
-              title={tab.filePath}
+              title={tab.label}
             >
               {tab.label}
             </span>
@@ -177,8 +162,8 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, onReorderTa
                 flexShrink: 0,
                 transition: "background 0.1s, color 0.1s",
               }}
-               title={t(tab.kind === "terminal" ? "terminal.close" : "i18n.close")}
-               aria-label={`${t(tab.kind === "terminal" ? "terminal.close" : "i18n.close")} ${tab.label}`}
+               title={t("i18n.close")}
+               aria-label={`${t("i18n.close")} ${tab.label}`}
             >
               <svg width="11" height="11" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
                 <line x1="2" y1="2" x2="8" y2="8" />

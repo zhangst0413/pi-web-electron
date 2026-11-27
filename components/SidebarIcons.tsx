@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 /**
  * Small stroke icons for the session sidebar: rows, group headers, menus and
- * the files tab. One 24 grid, stroked with `currentColor`, so the parent's
+ * the sidebar. One 24 grid, stroked with `currentColor`, so the parent's
  * color (muted, dim, accent, danger) decides how they look. Decorative by
  * default (`aria-hidden`); pass `label` when the icon is the only thing that
  * says what it means (the running spinner in a row's status slot).
@@ -179,15 +179,6 @@ export function FolderPlusIcon(props: SidebarIconProps) {
   );
 }
 
-export function TerminalIcon(props: SidebarIconProps) {
-  return (
-    <SidebarIcon {...props}>
-      <polyline points="4 17 10 11 4 5" />
-      <line x1="12" y1="19" x2="20" y2="19" />
-    </SidebarIcon>
-  );
-}
-
 export function SearchIcon(props: SidebarIconProps) {
   return (
     <SidebarIcon {...props}>
@@ -195,49 +186,6 @@ export function SearchIcon(props: SidebarIconProps) {
       <path d="m20 20-4-4" />
     </SidebarIcon>
   );
-}
-
-export function UploadIcon(props: SidebarIconProps) {
-  return (
-    <SidebarIcon {...props}>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <path d="m17 8-5-5-5 5" />
-      <path d="M12 3v12" />
-    </SidebarIcon>
-  );
-}
-
-export function RefreshIcon(props: SidebarIconProps) {
-  return (
-    <SidebarIcon {...props}>
-      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-      <path d="M3 3v5h5" />
-    </SidebarIcon>
-  );
-}
-
-/** Git changes: a commit on a line. */
-export function ChangesIcon(props: SidebarIconProps) {
-  return (
-    <SidebarIcon {...props}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M3 12h6M15 12h6" />
-    </SidebarIcon>
-  );
-}
-
-/** What the file tree lists: the files tab's ignored-files switch. */
-export function EyeIcon(props: SidebarIconProps) {
-  return (
-    <SidebarIcon {...props}>
-      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
-      <circle cx="12" cy="12" r="3" />
-    </SidebarIcon>
-  );
-}
-
-export function MessageIcon(props: SidebarIconProps) {
-  return <SidebarIcon {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></SidebarIcon>;
 }
 
 /**

@@ -14,10 +14,10 @@ const { GET } = await jiti.import("./[...path]/route.ts");
 const { allowFileRoot } = await jiti.import("../../../lib/allowed-roots.ts");
 allowFileRoot(root);
 
-test("download ranges require at least one bound and preserve valid suffix/open ranges", async () => {
-  const file = path.join(root, "download.txt");
+test("media ranges require at least one bound and preserve valid suffix/open ranges", async () => {
+  const file = path.join(root, "media.mp3");
   fs.writeFileSync(file, "abcdef");
-  const request = (range) => GET(new NextRequest("http://localhost/api/files/x?type=download", { headers: { range } }), {
+  const request = (range) => GET(new NextRequest("http://localhost/api/files/x?type=read", { headers: { range } }), {
     params: Promise.resolve({ path: file.replace(/\\/g, "/").split("/").filter(Boolean) }),
   });
   const invalid = await request("bytes=-");

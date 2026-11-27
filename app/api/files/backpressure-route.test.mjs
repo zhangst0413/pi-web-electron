@@ -14,9 +14,9 @@ const { GET } = await jiti.import("./[...path]/route.ts");
 const { allowFileRoot } = await jiti.import("../../../lib/allowed-roots.ts");
 allowFileRoot(root);
 
-test("a download is read from disk only as fast as the client takes it", async () => {
+test("a media file is read from disk only as fast as the client takes it", async () => {
   const size = 16 * 1024 * 1024;
-  const file = path.join(root, "big.bin");
+  const file = path.join(root, "big.mp4");
   fs.writeFileSync(file, Buffer.alloc(size, 1));
 
   const original = fs.createReadStream;
@@ -24,7 +24,7 @@ test("a download is read from disk only as fast as the client takes it", async (
   fs.createReadStream = (...args) => (stream = original.apply(fs, args));
   let response;
   try {
-    response = await GET(new NextRequest("http://localhost/api/files/x?type=download"), {
+    response = await GET(new NextRequest("http://localhost/api/files/x?type=read"), {
       params: Promise.resolve({ path: file.split(path.sep).filter(Boolean) }),
     });
   } finally {
@@ -38,11 +38,11 @@ test("a download is read from disk only as fast as the client takes it", async (
   assert.ok(readSoFar < size / 4, `read ${readSoFar} of ${size} bytes for a client that read none`);
 });
 
-test("a client that keeps reading still receives the whole file", async () => {
-  const file = path.join(root, "whole.bin");
+test("a client that keeps reading still receives the whole media file", async () => {
+  const file = path.join(root, "whole.mp4");
   const bytes = Buffer.alloc(5 * 1024 * 1024 + 123, 7);
   fs.writeFileSync(file, bytes);
-  const response = await GET(new NextRequest("http://localhost/api/files/x?type=download"), {
+  const response = await GET(new NextRequest("http://localhost/api/files/x?type=read"), {
     params: Promise.resolve({ path: file.split(path.sep).filter(Boolean) }),
   });
   const body = Buffer.from(await response.arrayBuffer());

@@ -57,8 +57,6 @@ export const DEBUG_REATTACH_REASON_KEYS: Record<"visible" | "activity", string> 
 
 export const DEBUG_SOURCE_KIND_KEYS: Record<DebugTrackedEventSourceKind, string> = {
   agent: "debug.page.source.agent",
-  "file-watch": "debug.page.source.fileWatch",
-  terminal: "debug.page.source.terminal",
 };
 
 export const DEBUG_SOURCE_STATE_KEYS: Record<DebugTrackedEventSource["state"], string> = {
@@ -247,8 +245,7 @@ function isServerGlobal(value: unknown): boolean {
   return isObject(value)
     && isNumber(value.startedAt)
     && isObject(value.wrappers)
-    && isObject(value.eventStreams) && isNumber(value.sseTotal) && Array.isArray(value.pages)
-    && isObject(value.terminals);
+    && isObject(value.eventStreams) && isNumber(value.sseTotal) && Array.isArray(value.pages);
 }
 
 /** Whether an answer has the shape the panel renders; anything else is reported, never rendered. */
@@ -627,7 +624,7 @@ export function poolSlots(sources: readonly DebugTrackedEventSource[], protocol:
   // Between an EventSource's retries nothing is connected: only open sources take a connection.
   const held = all.filter((slot) => !slot.connecting).length;
   // All of them, those past the cap too.
-  const kinds: Record<DebugTrackedEventSourceKind, number> = { agent: 0, "file-watch": 0, terminal: 0 };
+  const kinds: Record<DebugTrackedEventSourceKind, number> = { agent: 0 };
   for (const slot of all) kinds[slot.kind] = (kinds[slot.kind] ?? 0) + 1;
   return {
     protocol,

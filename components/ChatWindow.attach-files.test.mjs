@@ -30,7 +30,7 @@ const log = new File(["x"], "server.log", { type: "" });
 
 /** Picks files with the composer's attach button, through ChatWindow's real drop path. */
 async function attach(files, { cwd = "/project", response } = {}) {
-  const calls = { images: [], uploads: [], mentions: [], notices: [], refreshed: 0 };
+  const calls = { images: [], uploads: [], mentions: [], notices: [] };
   const scope = {
     session: null,
     newSessionCwd: cwd,
@@ -42,7 +42,6 @@ async function attach(files, { cwd = "/project", response } = {}) {
     },
     addNotice: (notice) => calls.notices.push([notice.type, notice.message]),
     t: (key, vars) => (vars ? `${key} ${JSON.stringify(vars)}` : key),
-    onFilesUploaded: () => { calls.refreshed += 1; },
     splitDroppedItems,
     dropMentionText,
     uploadFiles: async (target, uploads, strategy) => {
@@ -69,7 +68,6 @@ test("the attach button sends picked files down the chat drop path (#1101)", asy
     ["success", 'chat.dropUploaded {"count":1}'],
     ["warning", 'chat.dropAlreadyExists {"names":"server.log"}'],
   ]);
-  assert.equal(mixed.refreshed, 1);
 
   const imagesOnly = await attach([photo]);
   assert.deepEqual(imagesOnly.images, [photo]);

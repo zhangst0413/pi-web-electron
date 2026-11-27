@@ -243,7 +243,7 @@
   unicode-bidi: plaintext;
 }
 
-/* The files tab's project and worktree menus on a desktop (`classic`,
+/* The sidebar's project and worktree menus on a desktop (`classic`,
    components/ProjectWorktreePicker.tsx): main's dropdowns under their box.
    Rows divided by lines, 11px, paths and branches in code type, a 10px check
    (accent) where the icon goes, the folder actions after a double line. */

@@ -105,8 +105,6 @@ export interface DebugServerPage {
   address: string | null;
   client: string | null;
   agent: number;
-  terminal: number;
-  fileWatch: number;
 }
 
 export interface DebugSessionDetail {
@@ -151,20 +149,10 @@ export interface DebugServerGlobal {
     /** Every open agent event stream, from all pages and browsers. */
     total: number;
   };
-  /** Every open SSE response, each a connection of its browser's pool: agent, terminal, file watch. */
+  /** Every open SSE response, each a connection of its browser's pool. */
   sseTotal: number;
   /** The pages holding them (opened with `?holder=`; null: without one), by kind. */
   pages: DebugServerPage[];
-  fileWatches: number;
-  terminals: {
-    count: number;
-    /** Open terminal event streams. */
-    listeners: number;
-    /** Shells with no stream, killed at their cleanup time unless one reattaches. */
-    detached: number;
-    exited: number;
-    nextCleanupAt: number | null;
-  };
 }
 
 export interface DebugSnapshotResponse {
@@ -271,7 +259,7 @@ export interface DebugClientSession {
   lease: DebugClientLease;
 }
 
-export type DebugTrackedEventSourceKind = "agent" | "file-watch" | "terminal";
+export type DebugTrackedEventSourceKind = "agent";
 
 /** An EventSource this page holds open (or is reconnecting). */
 export interface DebugTrackedEventSource {

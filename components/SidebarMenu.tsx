@@ -6,7 +6,7 @@ import { CheckIcon } from "./SidebarIcons";
 
 /**
  * The session sidebar's popup menu: a row's ⋯ or right-click menu, a project
- * group's menu; also the project and worktree menus of the files tab and of
+ * group's menu; also the project and worktree menus of the sidebar and of
  * the bar above a fresh composer (components/ProjectWorktreePicker.tsx). On a
  * desktop it is a small menu placed at a point or beside a button; on a phone
  * (`sheet`) a bottom sheet over its own backdrop. Either way it is portaled to `document.body`: the mobile sidebar
@@ -126,7 +126,7 @@ export interface SidebarMenuProps {
   /** Desktop width in px. */
   width?: number;
   /**
-   * The files tab's project and worktree menus on a desktop: the look of the
+   * The sidebar's project and worktree menus on a desktop: the look of the
    * dropdowns they were on main, rows divided by lines, 11px.
    */
   classic?: boolean;

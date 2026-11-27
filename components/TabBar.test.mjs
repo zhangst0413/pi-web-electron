@@ -10,7 +10,7 @@ const { I18nProvider } = await jiti.import("@/hooks/useI18n");
 const { TabBar } = await jiti.import("./TabBar.tsx");
 
 function renderTabBar(count, onReorderTab) {
-  const tabs = Array.from({ length: count }, (_, index) => ({ id: `t${index}`, label: `file-${index}.ts`, filePath: `/p/file-${index}.ts` }));
+  const tabs = Array.from({ length: count }, (_, index) => ({ id: `t${index}`, label: `side-${index}` }));
   return renderToStaticMarkup(React.createElement(I18nProvider, null,
     React.createElement(TabBar, { tabs, activeTabId: "t0", onSelectTab() {}, onCloseTab() {}, onReorderTab })));
 }

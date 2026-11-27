@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
@@ -37,70 +36,13 @@ function render(props = {}) {
   })));
 }
 
-/** The files tab's row of keys under the picker. */
-function actionsRow(html) {
-  const start = html.indexOf('<div class="sidebar-files-actions"');
-  assert.notEqual(start, -1, "the files tab's keys are rendered");
-  return html.slice(start, html.indexOf("</div>", start) + "</div>".length);
-}
-
-/** Each key's name and state, in order (as SessionSidebar.test.mjs reads the stacked row's). */
-function keyLabels(markup) {
-  return [...markup.matchAll(/<button type="button"( disabled="")? title="([^"]+)" aria-label="\2"( aria-pressed="(true|false)")?( aria-expanded="(true|false)" aria-controls="[^"]+")? class="[^"]+"/g)]
-    .map((match) => `${match[2]}${match[1] ? " (disabled)" : ""}${match[4] ? ` pressed=${match[4]}` : ""}${match[6] ? ` expanded=${match[6]}` : ""}`);
-}
-
-test("the fixture stands in for the whole hook module", async () => {
-  // Everything the real module exports, so no importer of it breaks under the alias.
-  const hookSource = await readFile(new URL("../hooks/useIsMobile.ts", import.meta.url), "utf8");
-  const fixture = await import("./__fixtures__/mobile-viewport.mjs");
-  const exported = [...hookSource.matchAll(/^export (?:const|function) (\w+)/gm)].map((match) => match[1]);
-  assert.deepEqual(Object.keys(fixture).sort(), exported.sort());
-  assert.equal(fixture.useIsMobile(), true);
-});
-
-test("the tabs layout renders its tabs, no brand and no files section header", () => {
-  const html = render({ selectedCwd: "/work/alpha", onOpenTerminal: noop });
-  assert.match(html, /^<div class="session-sidebar" style="--sidebar-files-height:320px"><div class="sidebar-header"><div class="sidebar-tabs-list" role="tablist" aria-label="侧边栏视图">/);
-  assert.equal((html.match(/role="tab"/g) ?? []).length, 2);
-  assert.doesNotMatch(html, /sidebar-brand|sidebar-files-section|sidebar-files-keys|sidebar-files-changes|is-files-below/);
-  // Both panels are tab panels; the files' is hidden behind its tab.
-  assert.match(html, /<div id="session-sidebar-panel-files" role="tabpanel" aria-labelledby="session-sidebar-tab-files" hidden="" class="sidebar-panel sidebar-files-panel">/);
-  // The picker's two boxes one under the other, then the keys.
-  assert.match(html, /<div class="sidebar-files-head"><div class="project-picker is-stacked" role="group"/);
-  // No file search key: the toolbar row's search is the tab's.
+test("a phone renders the same layout: the brand, the project picker above the tree, no tabs", () => {
+  const html = render({ selectedCwd: "/work/alpha" });
+  assert.match(html, /^<div class="session-sidebar"><div class="sidebar-header"><button type="button" class="sidebar-brand"/);
+  assert.doesNotMatch(html, /role="tablist"|role="tab"|sidebar-tabs-list|sidebar-files-section|sidebar-files-keys/);
+  // One panel, with the project and worktree picker on top of the tree.
+  assert.match(html, /<div id="session-sidebar-panel-sessions" class="sidebar-panel sidebar-sessions-panel"><div class="sidebar-picker-row"><div class="project-picker is-row" role="group"/);
   assert.doesNotMatch(html, /aria-controls="file-search-input"/);
-});
-
-test("the files tab's keys: the folder's four, then the tree's two views, always the same", () => {
-  const row = actionsRow(render({ selectedCwd: "/work/alpha", onOpenTerminal: noop }));
-  assert.match(row, /^<div class="sidebar-files-actions" role="group" aria-label="文件操作">/);
-  // The changes view is there without changes too, disabled, and its count
-  // is the tab's.
-  assert.deepEqual(keyLabels(row), [
-    "打开工作区终端",
-    "在文件管理器中打开",
-    "将文件上传到项目根目录",
-    "刷新文件列表",
-    "显示被忽略的文件 pressed=false",
-    "0 个变更文件 (disabled) pressed=false",
-  ]);
-  // The tree's views start at the right end.
-  assert.match(row, /title="显示被忽略的文件" aria-label="显示被忽略的文件" aria-pressed="false" class="sidebar-tool-button sidebar-files-views-start"/);
-  assert.equal((row.match(/sidebar-files-views-start/g) ?? []).length, 1);
-  // Their icons stay 14px here (the section header row's are 13px).
-  assert.deepEqual([...row.matchAll(/<svg width="(\d+)" height="(\d+)"/g)].map((match) => `${match[1]}x${match[2]}`), Array(6).fill("14x14"));
-
-  // Without a terminal (no onOpenTerminal) the other five stay; the files
-  // tab leaves it out where the row below the sessions disables it.
-  assert.deepEqual(keyLabels(actionsRow(render({ selectedCwd: "/work/alpha" }))), [
-    "在文件管理器中打开",
-    "将文件上传到项目根目录",
-    "刷新文件列表",
-    "显示被忽略的文件 pressed=false",
-    "0 个变更文件 (disabled) pressed=false",
-  ]);
-
-  // Without a folder there is nothing to act on: no row.
-  assert.doesNotMatch(render(), /sidebar-files-actions/);
+  // The toolbar's search is the sessions'.
+  assert.match(html, /aria-controls="session-search-input"/);
 });

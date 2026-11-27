@@ -2,14 +2,13 @@
 #
 # The shell starts the same Next.js server the `pi-web` command starts, so the
 # packaged app carries the built `.next/` folder and the production node_modules
-# next to it. `asar` is off on purpose: Next and node-pty load files by real path
+# next to it. `asar` is off on purpose: Next loads files by real path
 # at runtime, and the launcher spawns `bin/pi-web.js` from there.
 appId: com.agegr.piweb.desktop
 productName: Pi Web
 copyright: MIT
-# node-pty ships N-API prebuilds that load in both Node and Electron, so no
-# native rebuild is needed; without this, electron-builder wants a full Visual
-# Studio toolchain on the build machine.
+# Nothing in the tree has a native addon to rebuild, and without this
+# electron-builder wants a full Visual Studio toolchain on the build machine.
 npmRebuild: false
 asar: false
 # The devDependency's electron install already holds the unpacked distribution

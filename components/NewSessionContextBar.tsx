@@ -48,7 +48,7 @@ function loadHomeDir(): Promise<string> {
 /**
  * The project and worktree a fresh composer starts its session in: a row of
  * its own in the empty new-session page's header, under the brand and right
- * above the composer. The files tab's picker
+ * above the composer. The sidebar's picker
  * (components/ProjectWorktreePicker.tsx) laid out inline: the project's name
  * and the worktree's branch as text, its group named by the label alone (no
  * visible one: the folder icon says it). Every pick starts the composer over

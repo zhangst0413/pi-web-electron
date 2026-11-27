@@ -8,8 +8,6 @@ import type {
   DebugSessionSummary,
   DebugSnapshotResponse,
 } from "./debug-types";
-import { countFileWatches } from "./file-watch-registry";
-import { listPageStreams } from "./page-stream-registry";
 import {
   getRpcSessionDebugSnapshots,
   getRpcSessionLifecycle,
@@ -18,7 +16,6 @@ import {
   type RpcSessionDebugEntry,
 } from "./rpc-manager";
 import { listRegisteredSessionLivenessProviders, listSessionLivenessProviders } from "./session-liveness";
-import { getTerminalStats } from "./terminal-manager";
 
 // Each source on its own: one that throws reads as empty, so the panel always gets a well-formed
 // answer. Not logged: the panel polls every two seconds.
@@ -29,8 +26,6 @@ function read<T>(source: () => T, fallback: T): T {
     return fallback;
   }
 }
-
-const NO_TERMINALS: DebugServerGlobal["terminals"] = { count: 0, listeners: 0, detached: 0, exited: 0, nextCleanupAt: null };
 
 // Field by field, so a row never carries more than the contract names.
 function toEventStream(stream: DebugEventStream): DebugEventStream {
@@ -108,21 +103,16 @@ export function buildDebugSnapshot(sessionId: string | null, now = Date.now()): 
 
   // Each page with its streams of every kind, labelled by the first one's request.
   const pages = new Map<string | null, DebugServerPage>();
-  const countFor = (holder: string | null, address: string | null | undefined, client: string | null | undefined, kind: "agent" | "terminal" | "fileWatch") => {
+  const countFor = (holder: string | null, address: string | null | undefined, client: string | null | undefined) => {
     let page = pages.get(holder);
     if (!page) {
-      page = { holder, address: address ?? null, client: client ?? null, agent: 0, terminal: 0, fileWatch: 0 };
+      page = { holder, address: address ?? null, client: client ?? null, agent: 0 };
       pages.set(holder, page);
     }
-    page[kind] += 1;
+    page.agent += 1;
   };
-  for (const stream of streams) countFor(stream.holder, stream.address, stream.client, "agent");
-  for (const stream of read(() => listPageStreams(), [])) {
-    countFor(stream.holder, stream.address, stream.client, stream.kind === "terminal" ? "terminal" : "fileWatch");
-  }
+  for (const stream of streams) countFor(stream.holder, stream.address, stream.client);
   const agentTotal = read(() => countAgentEventStreams(), streams.length);
-  const fileWatches = read(() => countFileWatches(), 0);
-  const terminals = read(() => getTerminalStats(now), NO_TERMINALS);
 
   const server: DebugServerGlobal = {
     startedAt: Math.round(now - process.uptime() * 1000),
@@ -138,10 +128,8 @@ export function buildDebugSnapshot(sessionId: string | null, now = Date.now()): 
       total: agentTotal,
     },
     // The counters, not the page list: they also hold streams opened without a page id.
-    sseTotal: agentTotal + terminals.listeners + fileWatches,
+    sseTotal: agentTotal,
     pages: [...pages.values()],
-    fileWatches,
-    terminals,
   };
 
   return {

@@ -13,7 +13,6 @@ const {
   SIDEBAR_MOTION_GRACE_MS,
   SIDEBAR_MOTION_MS,
   archiveViewState,
-  filesFoldState,
   prefersReducedMotion,
   useSidebarMotion,
 } = await jiti.import("./useSidebarMotion.ts");
@@ -100,20 +99,6 @@ test("unmounting drops a running phase's fallback", () => {
   mock.timers.tick(LAST * 2);
   view.flush();
   assert.equal(view.result.phase, "in", "no state set after unmount");
-});
-
-test("the files section: still, today's states; folding, the body shown and inert; unfolding, shown at once", () => {
-  for (const collapsed of [false, true]) {
-    const still = { bodyHidden: collapsed, bodyInert: false, moving: false, open: !collapsed };
-    assert.deepEqual(filesFoldState(collapsed, null), still);
-    // A phase that does not match the state (a repeat) changes nothing.
-    assert.deepEqual(filesFoldState(collapsed, collapsed ? "in" : "out"), still);
-  }
-  // Folding: the body stays to the end, inert, the separator gone at once.
-  assert.deepEqual(filesFoldState(true, "out"), { bodyHidden: false, bodyInert: true, moving: true, open: false });
-  // Unfolding: the body shows first and takes clicks; the separator and a
-  // focus request wait for the end.
-  assert.deepEqual(filesFoldState(false, "in"), { bodyHidden: false, bodyInert: false, moving: true, open: false });
 });
 
 test("the archive view: still, today's states; entering over an inert tree; leaving inert over the tree", () => {

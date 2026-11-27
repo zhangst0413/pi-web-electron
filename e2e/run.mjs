@@ -9,7 +9,6 @@ import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { checkFilePanel, checkLargeHtmlStorage, filePanelFixture, largeStorageFixture } from "./file-panel.mjs";
 import { checkExtensionDialogSizing, checkExtensionDialogs, extensionSource } from "./extension-dialog.mjs";
 import { checkComposerFocus } from "./composer-focus.mjs";
 import { checkCodeBackground } from "./code-background.mjs";
@@ -18,7 +17,7 @@ import { checkModelDiscovery } from "./model-discovery.mjs";
 import { checkModelOrder } from "./model-order.mjs";
 import { checkModelContext } from "./model-context.mjs";
 import { checkModelSelector } from "./model-selector.mjs";
-import { checkFilesBelowSessions, showSidebarSessions } from "./sidebar.mjs";
+import { checkSidebarLayout, showSidebarSessions } from "./sidebar.mjs";
 import { checkSessionNavigation } from "./session-navigation.mjs";
 import { checkProjectNavigation, createProjectNavigationFixtures } from "./project-navigation.mjs";
 import { checkDirectoryPicker, createDirectoryPickerFixtures } from "./directory-picker.mjs";
@@ -34,10 +33,6 @@ const agentDir = mkdtempSync(join(tmpdir(), "pi-web-e2e-"));
 const project = join(agentDir, "project");
 const sessionDir = join(agentDir, "sessions", "e2e");
 mkdirSync(project);
-const previewFile = join(project, "preview.html");
-writeFileSync(previewFile, filePanelFixture);
-const largeStorageFile = join(project, "large-storage.html");
-writeFileSync(largeStorageFile, largeStorageFixture);
 mkdirSync(sessionDir, { recursive: true });
 const timestamp = "2026-08-23T00:00:00.000Z";
 const LONG = "e2e-long-session";
@@ -504,8 +499,6 @@ try {
     }
     await page.goto(`${base}/?session=${RICH}`, { waitUntil: "domcontentloaded" });
     await page.locator(".markdown-code-block pre").waitFor();
-    await checkFilePanel(page, previewFile);
-    await checkLargeHtmlStorage(page, largeStorageFile);
     await checkExtensionDialogs(page, artifacts, viewport.width);
     await checkExtensionDialogSizing(page, viewport.width);
     await checkComposerFocus(page, { base, sessionId: RICH });
@@ -526,9 +519,9 @@ try {
         await page.waitForTimeout(200);
       }
       await hideSidebar.waitFor({ state: "visible" });
-      // The files sit below the sessions on a desktop, with no tabs.
-      await checkFilesBelowSessions(page);
-      console.log("PASS: files below the sessions by default");
+      // One panel: the project picker over the sessions, no tabs.
+      await checkSidebarLayout(page);
+      console.log("PASS: the sidebar's one panel");
       await checkModelDiscovery(page);
     }
     await checkModelContext(page);

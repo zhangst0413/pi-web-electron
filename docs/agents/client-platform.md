@@ -12,23 +12,6 @@
 
 - Dictation tools (CosyVoice) write the transcript to the clipboard, post Cmd+V and restore the old clipboard soon after. When that write lands during the `paste` event, Chrome checks the clipboard again before inserting and drops its own insertion: `beforeinput insertFromPaste` with `data: null`, no `input` (#1513). The native paste stays in charge; `handlePaste` remembers the event's text and selection, `handleInput` clears that, and a `setTimeout(0)` inserts the text with `replaceTextareaRange()` only when no `input` came and the event was not prevented. Never take over every plain-text paste: Chrome's `execCommand("insertText")` takes seconds on a few thousand lines (4,000 lines: 13.6 s against 28 ms native).
 
-## Terminal shell (`terminalShell()` in `lib/terminal-manager.ts`)
-- A new terminal on Windows starts PowerShell as pi's `powershell` tool finds it, through the SDK's `getPowerShellConfig()`: PowerShell 7 (`pwsh.exe`), then Windows PowerShell (`powershell.exe`), and only without either `ComSpec` / `cmd.exe` (#1394). That is Windows Terminal's default too. The lookup is `where`, so a Store install's `WindowsApps` alias is what gets spawned; node-pty spawns it as it would the bare name. The tool's `-NoProfile -Command` arguments are not reused: the terminal is interactive. Elsewhere it is `$SHELL -l` (`/bin/sh` without `SHELL`).
-- There is no shell setting and no `shell` field on `POST /api/terminal`: one default, and anyone who wants cmd or Git Bash types `cmd` / `bash` in the tab. A refreshed page's tabs reconnect to their own PTY (`createTerminal()` returns the record for a known id), so they keep the shell they started with; only new tabs pick it again.
-- `POST /api/terminal` on a folder that no longer exists answers 400 with `cwdMissingBody()` (`reason: "cwd-missing"`), like `/api/agent/new` and `/api/models`, not a 500 with the OS error; the terminal tab shows its text.
-
-## Terminal extra keys (`components/TerminalExtraKeys.tsx`, `lib/terminal-extra-keys.ts`)
-- A touch device held in portrait gets Termux's two key rows under the terminal (`ESC / - HOME ↑ END PGUP`, `TAB CTRL ALT ← ↓ → PGDN`). Portrait comes from `screen.orientation` (then `window.orientation`), never from the viewport: the soft keyboard makes the viewport wider than tall, and the keys must stay while it is open. Left and right wear a rotated `↓` and `↑` (`KEY_LABELS` + `.is-rotated`), so the row never depends on the mono font having `←`/`→`.
-- The keys are the panel's last grid row, so xterm's `ResizeObserver` refits above them instead of being covered. Buttons call `preventDefault()` on pointer and mouse down so the hidden xterm textarea keeps focus and the keyboard stays up.
-- Keys go through `terminal.input(sequence, true)`, the same `onData` path (and the same connected / disableStdin checks) as typing. Arrows and Home/End follow xterm's application cursor mode; CTRL and ALT are one-shot and also modify the next character typed on the soft keyboard (`applyTerminalModifiers` in `onData`).
-
-## Terminal theme (`lib/terminal-theme.ts`, `hooks/useTerminalTheme.ts`)
-- The terminal header's sun/moon button switches the terminal alone between dark (the default) and light, apart from the app theme. The choice is per browser in `localStorage` (`pi-web:terminal-theme`), shared by every open terminal and synced across tabs by the `storage` event.
-- A switch sets `terminal.options.theme` on the live xterm, never recreating it, so the shell and its SSE stream stay. The panel's chrome reads `--terminal-*` variables that `.terminal-panel[data-terminal-theme="light"]` overrides; `--terminal-bg` must match each xterm palette's `background`.
-
-## Terminal font size (fixed at 13px)
-- The terminal's font size is fixed at 13px (`TERMINAL_FONT_SIZE` in `components/TerminalPanel.tsx`), one below the chat's 14px as code blocks are; there is no slider (settings-ui.md). Its family is `--font-mono` and its bold stays xterm's 700. A window resize refits through the panel's `fitAndResize`, whose `onResize` sends the new cols/rows to the PTY.
-
 ## Sidebar breakpoint (`components/AppShell.tsx`)
 - The mobile drawer starts closed on entering the mobile breakpoint. Desktop open state is remembered separately, seeded from the URL's initial `sidebarCollapsed` value and updated only by explicit desktop toggles. Returning to desktop restores that preference; mobile drawer toggles, backdrop clicks and toolbar actions must not replace it.
 

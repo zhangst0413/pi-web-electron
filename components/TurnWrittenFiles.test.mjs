@@ -17,12 +17,12 @@ function render(props) {
   );
 }
 
-test("renders a button per file showing the basename and full path", () => {
+test("renders a chip per file showing the basename and full path", () => {
   const html = render({
     files: [{ filePath: "/abs/out/report.html" }, { filePath: "/abs/out/data.json" }],
-    onOpenFile() {},
   });
-  assert.match(html, /<button/);
+  assert.match(html, /<span/);
+  assert.doesNotMatch(html, /<button/);
   assert.match(html, /report\.html/);
   assert.match(html, /data\.json/);
   assert.match(html, /title="\/abs\/out\/report\.html"/);
@@ -30,5 +30,5 @@ test("renders a button per file showing the basename and full path", () => {
 });
 
 test("renders nothing when no files were written", () => {
-  assert.equal(render({ files: [], onOpenFile() {} }), "");
+  assert.equal(render({ files: [] }), "");
 });

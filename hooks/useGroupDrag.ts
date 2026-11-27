@@ -125,7 +125,7 @@ function sameDrop(a: GroupDrop | null, b: GroupDrop | null): boolean {
   return a === b || (a !== null && b !== null && a.anchorKey === b.anchorKey && a.position === b.position && a.lineY === b.lineY);
 }
 
-/** Laid out: not display: none itself or inside something that is (the archive view, the files tab). */
+/** Laid out: not display: none itself or inside something that is (the archive view over the tree). */
 function isRendered(element: HTMLElement): boolean {
   return element.getClientRects().length > 0;
 }

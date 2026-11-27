@@ -47,11 +47,6 @@ export function markdownAppUrlTransform(value: string): string {
   return appLinkPattern.test(value) ? value : defaultUrlTransform(value);
 }
 
-/** Also keeps `file:` links, for renderers that open local files in the app. */
-export function markdownUrlTransform(value: string): string {
-  return /^file:/i.test(value) ? value : markdownAppUrlTransform(value);
-}
-
 /** A link that leaves the page: it names a scheme or another host. */
 export function isExternalMarkdownHref(href: string | undefined): boolean {
   return Boolean(href && /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(href));

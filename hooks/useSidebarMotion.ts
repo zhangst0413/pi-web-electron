@@ -75,30 +75,6 @@ export function useSidebarMotion(): SidebarMotion {
   return { phase, start, end };
 }
 
-/** The files section below the sessions, folded or open, and on its way. */
-export interface FilesFoldState {
-  /** The body under the header row: `hidden` once folded, never while it folds away. */
-  bodyHidden: boolean;
-  /** Inert while it folds away: nothing in it takes focus or a click on its way out. */
-  bodyInert: boolean;
-  /** The height transition is on (`.is-files-folding`): a fold only, never a drag, keys, a resize or a layout switch. */
-  moving: boolean;
-  /** Open and done unfolding: the separator shows, and focus asked for in the files goes there. */
-  open: boolean;
-}
-
-/** Still (phase null), what shows is what showed before the motion: the body hidden iff folded. */
-export function filesFoldState(collapsed: boolean, phase: SidebarMotionPhase): FilesFoldState {
-  const folding = collapsed && phase === "out";
-  const unfolding = !collapsed && phase === "in";
-  return {
-    bodyHidden: collapsed && !folding,
-    bodyInert: folding,
-    moving: folding || unfolding,
-    open: !collapsed && !unfolding,
-  };
-}
-
 /** The main session tree and the archive view over it. */
 export interface ArchiveViewState {
   /** The main tree: hidden under the open archive once it has slid in. */

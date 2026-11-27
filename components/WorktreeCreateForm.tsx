@@ -5,7 +5,7 @@ import { useI18n } from "@/hooks/useI18n";
 
 /**
  * A worktree menu's "New worktree…" body (components/ProjectWorktreePicker.tsx,
- * in the files tab and the bar above a fresh composer): a branch name and
+ * in the sidebar's picker and the bar above a fresh composer): a branch name and
  * Create. On a phone the sheet brings its own Cancel and title; in the files
  * tab's classic menu it shows under the list, as on main.
  */

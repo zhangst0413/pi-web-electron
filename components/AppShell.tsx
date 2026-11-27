@@ -7,10 +7,8 @@ import { SessionSidebar, type SelectSessionOptions, type SessionSidebarControl }
 import { ChatWindow } from "./ChatWindow";
 import { NewSessionContextBar, type NewSessionContextControl } from "./NewSessionContextBar";
 import type { ChatScrollPosition } from "@/lib/chat-scroll-position";
-import { FileViewer } from "./FileViewer";
 import { TabBar, type Tab } from "./TabBar";
 import { movePanelTab, orderPanelTabs } from "@/lib/panel-tab-order";
-import { openFileTab, saveFileViewerState, saveParkedFileViewerState, switchFileWorkspace, type ParkedFileWorkspace } from "./file-tab-state";
 import { SettingsPanel, SettingsSectionIcon } from "./SettingsPanel";
 import { SignOutButton } from "./SignOutButton";
 import { ProjectTrustDialog, type ProjectTrustFailure } from "./ProjectTrustDialog";
@@ -20,8 +18,6 @@ import { ToolDefinitionsPanel } from "./ToolDefinitionsPanel";
 import { AgentSessionPanel } from "./AgentSessionPanel";
 import { DebugPanel, DebugPanelBoundary } from "./DebugPanel";
 import { SessionChatPanel } from "./SessionChatPanel";
-import { TerminalPanel } from "./TerminalPanel";
-import { newTerminalTab, restoreTerminalTabs, TERMINAL_TABS_KEY, type TerminalTab } from "./terminal-tab-state";
 import { appendSideTab, restoreSideTabs, sideTabsKey } from "./side-tab-state";
 import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile, useIsNarrowMobile } from "@/hooks/useIsMobile";
@@ -30,7 +26,6 @@ import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { useAudio } from "@/hooks/useAudio";
 import { copyText } from "@/lib/clipboard";
 import { getFileName } from "@/lib/file-paths";
-import { buildAtMentionText, buildFileAtMentionsText, buildFileLineMentionText } from "@/lib/file-fuzzy";
 import {
   claimExtensionAttentionNotification,
   shouldShowBrowserNotification,
@@ -74,8 +69,7 @@ import type { ChatInputHandle } from "./ChatInput";
 import type { AgentEndInfo, NewSessionChoices } from "@/hooks/useAgentSession";
 import type { SessionStatsInfo } from "@/lib/pi-types";
 import { formatActiveDuration, formatCompactCount, formatCostShort } from "@/lib/session-stats-format";
-import type { FileViewerState } from "@/lib/file-viewer-state";
-import { PRESET_READ_ONLY, type ToolEntry } from "@/lib/tool-presets";
+import { type ToolEntry } from "@/lib/tool-presets";
 import { createSideChat, deleteSideChat } from "@/lib/side-chat-client";
 import { sideChatHit } from "@/lib/session-search-hit";
 import { getAgentsBadge, getSessionFamily, isHiddenRelation, sideChatTitle } from "@/lib/session-family";
@@ -94,14 +88,12 @@ type AutoNameStatus =
 // app/globals.css: 36px, 44px on a phone or touch screen.
 const TOP_BAR_ICON_BUTTON_SIZE = "var(--top-bar-height)";
 // The chat's top bar keeps only what acts on the chat: the branch navigator, the session stats and
-// the file-panel switch. These secondary controls stay out of the page: the full history, the
+// the side-panel switch. These secondary controls stay out of the page: the full history, the
 // title generation, the Agents switcher, the system prompt, the tool definitions and the Debug
 // panel. The sidebar switch keeps its place on a phone, where the drawer has no other opener.
 const SHOW_TOP_BAR_EXTRAS = false;
 const AGENT_PANEL_WIDTH = 420;
 // pi's built-in tools that never change a file; any other tool may (#1144).
-const READ_ONLY_TOOL_NAMES = new Set(PRESET_READ_ONLY);
-const TOOL_END_REFRESH_MS = 1000;
 
 /** Panel tab id of the last sub-agent tab, or null when there is none. */
 function lastAgentTabId(tabs: readonly { sessionId: string }[]): string | null {
@@ -216,7 +208,6 @@ export function AppShell() {
   const handleSearchTargetHandled = useCallback((target: { sessionId: string; entryId: string }) => {
     setSearchTarget((current) => current === target ? null : current);
   }, []);
-  const [explorerRefreshKey, setExplorerRefreshKey] = useState(0);
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
   const [modelsRefreshKey, setModelsRefreshKey] = useState(0);
   const [projectTrust, setProjectTrust] = useState<ProjectTrustStatus | null>(null);
@@ -274,7 +265,7 @@ export function AppShell() {
     widthRef: sidebarWidthRef,
   });
   const rightPanelResizer = useResizablePanel({
-    ariaLabel: translate("layout.resizeFilePanel"),
+    ariaLabel: translate("layout.resizePanel"),
     cssVariable: "--right-panel-width",
     defaultWidth: RIGHT_PANEL_FALLBACK_WIDTH,
     getDefaultWidth: getResponsiveRightPanelWidth,
@@ -541,43 +532,19 @@ export function AppShell() {
     return () => ro.disconnect();
   }, [activeTopPanel, isMobile]);
 
-  // Files unmount when inactive; workspace terminals stay mounted until closed.
-  const [fileTabs, setFileTabs] = useState<Tab[]>([]);
-  const [activeFileTabId, setActiveFileTabId] = useState<string | null>(null);
-  const fileWorkspaceStatesRef = useRef(new Map<string, ParkedFileWorkspace>());
-  // Bumped on every workspace switch. The active viewer reports its state as
-  // it unmounts, tagged with the generation it rendered in, so the report of a
-  // tab just parked goes to its workspace, not to a same-path tab restored.
-  const [fileWorkspaceGeneration, setFileWorkspaceGeneration] = useState(0);
-  const fileWorkspaceGenerationRef = useRef(0);
-  const [terminalTabs, setTerminalTabs] = useState<TerminalTab[]>([]);
-  const [terminalsRestored, setTerminalsRestored] = useState(false);
+  const [activePanelTabId, setActivePanelTabId] = useState<string | null>(null);
   // Side tabs follow their main session.
   const [agentTabs, setAgentTabs] = useState<{ sessionId: string; label: string }[]>([]);
   const sideTabOwnerRef = useRef<string | null>(null);
   const sideTabsReadyRef = useRef(false);
-  const sideTabsSavedOnWorkspaceSwitchRef = useRef(false);
   const [activeCwd, setActiveCwd] = useState<string | null>(null);
   const activeProjectKeyRef = useRef<string | null>(null);
   const [panelTabOrder, setPanelTabOrder] = useState<string[]>([]);
   const panelTabs: Tab[] = orderPanelTabs([
-    ...fileTabs,
-    ...terminalTabs.map((tab) => ({
-      id: tab.id,
-      label: getFileName(tab.cwd) || tab.cwd,
-      filePath: tab.cwd,
-      kind: "terminal" as const,
-      closing: Boolean(tab.closing),
-    })),
-    ...agentTabs.map((tab) => {
+    ...agentTabs.map((tab): Tab => {
       const session = sessionCatalog.find((item) => item.id === tab.sessionId);
       const label = session ? sideChatTitle(session, translate("agentSwitcher.sideChat"), activeSessionFamily?.members ?? []) : tab.label;
-      return {
-        id: `agent:${tab.sessionId}`,
-        label,
-        filePath: label,
-        kind: "side" as const,
-      };
+      return { id: `agent:${tab.sessionId}`, label };
     }),
   ], panelTabOrder);
   // A closed tab leaves the saved order, so reopening it appends it like any new tab.
@@ -586,29 +553,6 @@ export function AppShell() {
     const open = new Set(panelTabIds.split("\n"));
     setPanelTabOrder((order) => order.every((id) => open.has(id)) ? order : order.filter((id) => open.has(id)));
   }, [panelTabIds]);
-
-  useEffect(() => {
-    try {
-      const saved = restoreTerminalTabs(window.sessionStorage.getItem(TERMINAL_TABS_KEY));
-      setTerminalTabs(saved.tabs);
-      if (saved.activeId) {
-        setActiveFileTabId(saved.activeId);
-        setRightPanelOpen(saved.open);
-      }
-    } catch { /* storage is optional */ }
-    setTerminalsRestored(true);
-  }, []);
-
-  useEffect(() => {
-    if (!terminalsRestored) return;
-    try {
-      window.sessionStorage.setItem(TERMINAL_TABS_KEY, JSON.stringify({
-        tabs: terminalTabs.map(({ id, cwd }) => ({ id, cwd })),
-        activeId: activeFileTabId,
-        open: rightPanelOpen,
-      }));
-    } catch { /* storage is optional */ }
-  }, [terminalTabs, activeFileTabId, rightPanelOpen, terminalsRestored]);
 
   const rememberSideTabs = useCallback((key: string) => {
     try {
@@ -620,65 +564,11 @@ export function AppShell() {
       }
       window.sessionStorage.setItem(sideTabsKey(key), JSON.stringify({
         tabs,
-        activeId: tabs.some((tab) => `agent:${tab.sessionId}` === activeFileTabId) ? activeFileTabId : null,
+        activeId: tabs.some((tab) => `agent:${tab.sessionId}` === activePanelTabId) ? activePanelTabId : null,
         open: rightPanelOpen,
       }));
     } catch { /* storage is optional */ }
-  }, [agentTabs, activeFileTabId, rightPanelOpen]);
-
-  const handleFileViewerStateChange = useCallback((
-    generation: number,
-    tabId: string,
-    viewerRevision: number,
-    viewerState: FileViewerState,
-  ) => {
-    if (generation !== fileWorkspaceGenerationRef.current) {
-      saveParkedFileViewerState(fileWorkspaceStatesRef.current, generation, tabId, viewerRevision, viewerState);
-      return;
-    }
-    setFileTabs((prev) => saveFileViewerState(prev, tabId, viewerRevision, viewerState));
-  }, []);
-
-  const changeFileWorkspace = useCallback((currentKey: string | null, nextKey: string) => {
-    if (currentKey === nextKey) return;
-    const activeFileId = activeFileTabId?.startsWith("file:") ? activeFileTabId : null;
-    const next = switchFileWorkspace(fileWorkspaceStatesRef.current, currentKey, nextKey, {
-      tabs: fileTabs,
-      activeTabId: activeFileId,
-      open: rightPanelOpen && Boolean(activeFileId),
-    }, fileWorkspaceGenerationRef.current);
-    fileWorkspaceGenerationRef.current += 1;
-    setFileWorkspaceGeneration(fileWorkspaceGenerationRef.current);
-    setFileTabs(next.tabs);
-    // Side tabs are saved under their main session, and stay open across a switch.
-    if (sideTabsReadyRef.current && sideTabOwnerRef.current) {
-      rememberSideTabs(sideTabOwnerRef.current);
-      sideTabsSavedOnWorkspaceSwitchRef.current = true;
-    }
-    // Terminal tabs span workspaces and keep control of the panel while active.
-    if (!activeFileTabId || activeFileId || activeFileTabId.startsWith("agent:")) {
-      setActiveFileTabId(next.activeTabId);
-      setRightPanelOpen(next.open);
-    }
-  }, [activeFileTabId, fileTabs, rememberSideTabs, rightPanelOpen]);
-
-  // Same @mention format as the chat input's @ autocomplete, so the agent's
-  // read tool resolves it the same way (it strips the @ prefix).
-  const handleAtMention = useCallback((relativePath: string, isDir: boolean) => {
-    chatInputRef.current?.insertText(buildAtMentionText(relativePath, isDir));
-    if (isMobile) { setRightPanelOpen(false); setSidebarOpen(false); }
-  }, [isMobile]);
-
-  const handleAtMentions = useCallback((relativePaths: string[]) => {
-    const mentions = buildFileAtMentionsText(relativePaths);
-    if (mentions) chatInputRef.current?.insertText(mentions);
-    if (isMobile) { setRightPanelOpen(false); setSidebarOpen(false); }
-  }, [isMobile]);
-
-  const handleFileLineMention = useCallback((relativePath: string, startLine: number, endLine: number) => {
-    chatInputRef.current?.insertText(buildFileLineMentionText(relativePath, startLine, endLine));
-    if (isMobile) { setRightPanelOpen(false); setSidebarOpen(false); }
-  }, [isMobile]);
+  }, [agentTabs, activePanelTabId, rightPanelOpen]);
 
   const initialSessionId = initialNavigation.sessionId;
   const initialLinkedSessionId = linkedSessionId(initialNavigation);
@@ -689,8 +579,7 @@ export function AppShell() {
     if (!catalogLoaded || !initialSessionRestored) return;
     const previous = sideTabOwnerRef.current;
     if (!sideTabsReadyRef.current || previous !== sideTabOwner) {
-      if (sideTabsReadyRef.current && previous && !sideTabsSavedOnWorkspaceSwitchRef.current) rememberSideTabs(previous);
-      sideTabsSavedOnWorkspaceSwitchRef.current = false;
+      if (sideTabsReadyRef.current && previous) rememberSideTabs(previous);
       sideTabsReadyRef.current = true;
       sideTabOwnerRef.current = sideTabOwner;
       let restored = { tabs: [] as { sessionId: string; label: string }[], activeId: null as string | null, open: false };
@@ -700,15 +589,14 @@ export function AppShell() {
       }
       setAgentTabs(() => restored.tabs);
       const nextId = restored.activeId === `agent:${selectedSession?.id}` ? null : restored.activeId;
-      if (nextId || activeFileTabId?.startsWith("agent:") || !activeFileTabId) {
-        setActiveFileTabId(nextId ?? fileTabs.at(-1)?.id ?? terminalTabs.at(-1)?.id ?? null);
-        setRightPanelOpen(nextId ? restored.open : Boolean(fileTabs.length || terminalTabs.length) && rightPanelOpen);
+      if (nextId || activePanelTabId?.startsWith("agent:") || !activePanelTabId) {
+        setActivePanelTabId(nextId ?? null);
+        setRightPanelOpen(Boolean(nextId && restored.open));
       }
       return;
     }
     if (sideTabOwner) rememberSideTabs(sideTabOwner);
-    sideTabsSavedOnWorkspaceSwitchRef.current = false;
-  }, [activeFileTabId, catalogLoaded, fileTabs, initialSessionRestored, rememberSideTabs, rightPanelOpen, selectedSession?.id, sessionCatalog, sideTabOwner, terminalTabs]);
+  }, [activePanelTabId, catalogLoaded, initialSessionRestored, rememberSideTabs, rightPanelOpen, selectedSession?.id, sessionCatalog, sideTabOwner]);
   // sessionStorage is empty during SSR. Applying the tab's remembered session
   // in the useState initializer made the first client tree differ from the
   // server HTML (sidebar "select project" vs ""). Restore after mount instead.
@@ -908,15 +796,12 @@ export function AppShell() {
     // The debug panel stays open across the switch: it follows whichever session is shown.
     setActiveTopPanel((panel) => panel === "debug" ? panel : null);
     if (currentProject !== newProject) {
-      // Keep #281's project isolation, but park each workspace's file tabs
-      // instead of discarding them so they return when the user switches back.
-      changeFileWorkspace(currentProject, newProject);
       // Restore the workspace we switched to: its last open session, or keep
       // the default welcome page when none is remembered.
       if (!skipWorkspaceRestore) restoreWorkspaceContext(newProject, cwd);
     }
     router.replace(typeof window !== "undefined" ? window.location.pathname : "/", { scroll: false });
-  }, [activeCwd, changeFileWorkspace, invalidateWorkspaceRestore, newSessionCwd, router, selectedSession, restoreWorkspaceContext]);
+  }, [activeCwd, invalidateWorkspaceRestore, newSessionCwd, router, selectedSession, restoreWorkspaceContext]);
 
   const handleSelectSession = useCallback((session: SessionInfo, isRestore = false, entryId?: string, blockIndex?: number, options?: SelectSessionOptions) => {
     setSearchTarget(entryId ? { sessionId: session.id, entryId, blockIndex } : null);
@@ -930,7 +815,6 @@ export function AppShell() {
     // Adopt an explicitly selected session before the sidebar reports its cwd.
     const projectKey = workspaceKeyOf(session);
     if (activeProjectKeyRef.current !== projectKey) {
-      changeFileWorkspace(activeProjectKeyRef.current, projectKey);
       setActiveTopPanel((panel) => panel === "debug" ? panel : null);
     }
     activeProjectKeyRef.current = projectKey;
@@ -972,7 +856,7 @@ export function AppShell() {
     if (!isRestore || new URLSearchParams(window.location.search).get("session") !== session.id) {
       router.replace(`?session=${encodeURIComponent(session.id)}`, { scroll: false });
     }
-  }, [activeCwd, changeFileWorkspace, invalidateWorkspaceRestore, router, isMobile, newSessionCwd, selectedSession]);
+  }, [activeCwd, invalidateWorkspaceRestore, router, isMobile, newSessionCwd, selectedSession]);
 
   const handleNewSession = useCallback((sessionId: string, cwd: string, projectKey?: string | null, options?: NewSessionOptions) => {
     invalidateWorkspaceRestore();
@@ -995,9 +879,6 @@ export function AppShell() {
     // explicit session pick does. Without a key (Ctrl+Alt+N) the current cwd
     // keeps its project.
     const targetProject = projectKey ?? (cwd === activeCwd ? activeProjectKeyRef.current : null) ?? cwd;
-    if (activeProjectKeyRef.current !== targetProject) {
-      changeFileWorkspace(activeProjectKeyRef.current, targetProject);
-    }
     activeProjectKeyRef.current = targetProject;
     // A draft parked in this cwd comes back, unless one was carried here: it
     // stays parked for the next time, never merged into what was carried.
@@ -1026,7 +907,7 @@ export function AppShell() {
         chatInputRef.current?.focus();
       });
     }
-  }, [activeCwd, changeFileWorkspace, invalidateWorkspaceRestore, isMobile, newSessionCwd, router, selectedSession]);
+  }, [activeCwd, invalidateWorkspaceRestore, isMobile, newSessionCwd, router, selectedSession]);
 
   // Global keyboard shortcuts (handles Esc, Ctrl+Alt+N etc.)
   useGlobalKeyboardShortcuts({
@@ -1112,7 +993,6 @@ export function AppShell() {
     // The sidebar's reload merges the selected session's new row into it
     // (handleSessionsChange), so no list fetch of its own here.
     setRefreshKey((k) => k + 1);
-    setExplorerRefreshKey((k) => k + 1);
 
     if (end.aborted || isHiddenRelation(selectedSession?.relation)) return;
     if (!shouldShowBrowserNotification()) return;
@@ -1199,24 +1079,6 @@ export function AppShell() {
     setAutoNameStatus({ kind: "idle" });
   }, [selectedSession?.id]);
 
-  const handleExplorerRefresh = useCallback(() => {
-    setExplorerRefreshKey((k) => k + 1);
-  }, []);
-
-  // A run's writes show in the file tree as they happen, not only when it ends
-  // (#1144): at most one refresh a second, after any tool but the read-only ones.
-  const toolEndRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleToolEnd = useCallback((toolName: string) => {
-    if (READ_ONLY_TOOL_NAMES.has(toolName) || toolEndRefreshTimerRef.current) return;
-    toolEndRefreshTimerRef.current = setTimeout(() => {
-      toolEndRefreshTimerRef.current = null;
-      setExplorerRefreshKey((k) => k + 1);
-    }, TOOL_END_REFRESH_MS);
-  }, []);
-  useEffect(() => () => {
-    if (toolEndRefreshTimerRef.current) clearTimeout(toolEndRefreshTimerRef.current);
-  }, []);
-
   const handleSessionForked = useCallback((newSessionId: string, session?: SessionInfo) => {
     if (session) {
       // A fork into another folder is another project's session: opened as a
@@ -1276,48 +1138,12 @@ export function AppShell() {
     }
   }, [invalidateWorkspaceRestore, router]);
 
-  const handleOpenFile = useCallback((
-    filePath: string,
-    fileName: string,
-    options?: { sourceSessionId?: string | null; modeHint?: "diff"; page?: number },
-  ) => {
-    const sourceSessionId = options?.sourceSessionId;
-    const modeHint = options?.modeHint;
-    const page = options?.page;
-    const tabId = `file:${filePath}`;
-    setFileTabs((prev) => openFileTab(prev, {
-      fileName,
-      filePath,
-      modeHint,
-      page,
-      sourceSessionId,
-      tabId,
-    }));
-    setActiveFileTabId(tabId);
-    setRightPanelOpen(true);
-    // On mobile the file panel is full-screen; close the drawer so it shows.
-    if (isMobile) setSidebarOpen(false);
-  }, [isMobile]);
-
-  const handleOpenLinkedFile = useCallback((filePath: string, page?: number) => {
-    handleOpenFile(filePath, getFileName(filePath), { sourceSessionId: selectedSession?.id ?? null, page });
-  }, [handleOpenFile, selectedSession?.id]);
-
-  const handleOpenTerminal = useCallback((cwd: string) => {
-    const existing = terminalTabs.find((tab) => tab.cwd === cwd);
-    const tab = existing ?? newTerminalTab(cwd);
-    if (!existing) setTerminalTabs((tabs) => [...tabs, tab]);
-    setActiveFileTabId(tab.id);
-    setRightPanelOpen(true);
-    if (isMobile) setSidebarOpen(false);
-  }, [terminalTabs, isMobile]);
-
   // Side chat work opens in a right-panel tab instead of hijacking the main chat.
   const handleOpenMemberTab = useCallback((sessionId: string, label: string) => {
     setAgentTabs((prev) => prev.some((tab) => tab.sessionId === sessionId)
       ? prev
       : [...prev, { sessionId, label }]);
-    setActiveFileTabId(`agent:${sessionId}`);
+    setActivePanelTabId(`agent:${sessionId}`);
     setRightPanelOpen(true);
     if (isMobile) setSidebarOpen(false);
   }, [isMobile]);
@@ -1332,7 +1158,7 @@ export function AppShell() {
   );
   const handleToggleMemberTab = (sessionId: string, label: string) => {
     if (openMemberTabIds.has(sessionId)) {
-      handleCloseFileTab(`agent:${sessionId}`);
+      handleClosePanelTab(`agent:${sessionId}`);
       return;
     }
     if (isMobile) setActiveTopPanel(null);
@@ -1395,47 +1221,22 @@ export function AppShell() {
     if (runningSideTabs) setRefreshKey((key) => key + 1);
   }, [runningSideTabs]);
 
-  const handleTerminalClosed = (tab: TerminalTab) => {
-    const replacement = tab.closing === "restart" ? newTerminalTab(tab.cwd) : null;
-    const remaining = terminalTabs.filter((item) => item.id !== tab.id);
-    setTerminalTabs((tabs) => tabs.flatMap((item) => item.id !== tab.id ? [item] : replacement ? [replacement] : []));
-    setActiveFileTabId((current) => current !== tab.id ? current : replacement?.id ?? remaining.at(-1)?.id ?? fileTabs.at(-1)?.id ?? lastAgentTabId(agentTabs));
-    if (!replacement && !remaining.length && !fileTabs.length && !agentTabs.length) setRightPanelOpen(false);
-  };
-
-  const handleCloseFileTab = useCallback((tabId: string) => {
-    if (terminalTabs.some((tab) => tab.id === tabId)) {
-      setTerminalTabs((tabs) => tabs.map((tab) => tab.id === tabId && !tab.closing ? { ...tab, closing: "close" } : tab));
-      return;
-    }
-    if (tabId.startsWith("agent:")) {
-      const remainingAgents = agentTabs.filter((tab) => `agent:${tab.sessionId}` !== tabId);
-      setAgentTabs(remainingAgents);
-      setActiveFileTabId((cur) => {
-        if (cur !== tabId) return cur;
-        return fileTabs.at(-1)?.id ?? terminalTabs.at(-1)?.id ?? lastAgentTabId(remainingAgents);
-      });
-      if (fileTabs.length === 0 && terminalTabs.length === 0 && remainingAgents.length === 0) setRightPanelOpen(false);
-      return;
-    }
-    setFileTabs((prev) => {
-      const next = prev.filter((t) => t.id !== tabId);
-      if (next.length === 0 && terminalTabs.length === 0 && agentTabs.length === 0) setRightPanelOpen(false);
-      return next;
-    });
-    setActiveFileTabId((cur) => {
+  const handleClosePanelTab = useCallback((tabId: string) => {
+    const remainingAgents = agentTabs.filter((tab) => `agent:${tab.sessionId}` !== tabId);
+    setAgentTabs(remainingAgents);
+    setActivePanelTabId((cur) => {
       if (cur !== tabId) return cur;
-      const remaining = fileTabs.filter((t) => t.id !== tabId);
-      return remaining.at(-1)?.id ?? terminalTabs.at(-1)?.id ?? lastAgentTabId(agentTabs);
+      return lastAgentTabId(remainingAgents);
     });
-  }, [fileTabs, terminalTabs, agentTabs]);
+    if (remainingAgents.length === 0) setRightPanelOpen(false);
+  }, [agentTabs]);
 
   // An extension's ctx.shutdown() ended the session's runtime, as pi quits: leave it the
   // way a deleted session is left (the refreshed list shows whether its file remains).
   const handleSessionEnded = useCallback((sessionId: string) => {
     handleSessionDeleted(sessionId);
-    handleCloseFileTab(`agent:${sessionId}`);
-  }, [handleSessionDeleted, handleCloseFileTab]);
+    handleClosePanelTab(`agent:${sessionId}`);
+  }, [handleSessionDeleted, handleClosePanelTab]);
 
   // The Agents switcher's Delete on a side chat: its tab goes with it, and the
   // main chat showing it goes back to the parent, as the Main agent row does
@@ -1444,7 +1245,7 @@ export function AppShell() {
     const result = await deleteSideChat(sessionId);
     if (result) return result.error;
     clearDraft(sessionId);
-    handleCloseFileTab(`agent:${sessionId}`);
+    handleClosePanelTab(`agent:${sessionId}`);
     if (selectedSessionRef.current?.id === sessionId) {
       handleSelectSession(root);
       setRefreshKey((key) => key + 1);
@@ -1452,13 +1253,13 @@ export function AppShell() {
       handleSessionDeleted(sessionId);
     }
     return null;
-  }, [handleCloseFileTab, handleSelectSession, handleSessionDeleted]);
+  }, [handleClosePanelTab, handleSelectSession, handleSessionDeleted]);
 
   // One session, one chat: opening a side chat in the main chat closes its tab.
   const selectedSessionId = selectedSession?.id;
   useEffect(() => {
-    if (agentTabs.some((tab) => tab.sessionId === selectedSessionId)) handleCloseFileTab(`agent:${selectedSessionId}`);
-  }, [agentTabs, handleCloseFileTab, selectedSessionId]);
+    if (agentTabs.some((tab) => tab.sessionId === selectedSessionId)) handleClosePanelTab(`agent:${selectedSessionId}`);
+  }, [agentTabs, handleClosePanelTab, selectedSessionId]);
 
   const handleViewFullHistory = useCallback(() => {
     if (!selectedSession) return;
@@ -1590,9 +1391,8 @@ export function AppShell() {
     setProjectTrustDialogOpen(true);
   }, []);
 
-  const activeFileTab = fileTabs.find((tab) => tab.id === activeFileTabId) ?? null;
-  // Side chat work tabs: like files, only the active one is mounted.
-  const activeAgentTab = agentTabs.find((tab) => `agent:${tab.sessionId}` === activeFileTabId) ?? null;
+  // Side chat tabs: only the active one is mounted.
+  const activeAgentTab = agentTabs.find((tab) => `agent:${tab.sessionId}` === activePanelTabId) ?? null;
   const activeCwdName = activeCwd ? getFileName(activeCwd) || activeCwd : null;
   const windowTitle = activeCwdName ? `${activeCwdName} - Pi Web` : "Pi Web";
 
@@ -1624,12 +1424,6 @@ export function AppShell() {
         onSessionDeleted={handleSessionDeleted}
         selectedCwd={selectedSession?.cwd ?? newSessionCwd ?? null}
         onCwdChange={handleCwdChange}
-        onOpenFile={handleOpenFile}
-        onOpenTerminal={handleOpenTerminal}
-        explorerRefreshKey={explorerRefreshKey}
-        onExplorerRefresh={handleExplorerRefresh}
-        onAtMention={handleAtMention}
-        onAtMentions={handleAtMentions}
         onBackgroundTaskDone={handleBackgroundTaskDone}
         hiddenFinishedSessionIds={hiddenFinishedSessionIds}
         onRunningSessionIdsChange={handleRunningSessionIdsChange}
@@ -2258,11 +2052,11 @@ export function AppShell() {
         onClick={handleRightPanelToggle}
         disabled={covered}
         tabIndex={covered ? -1 : undefined}
-        aria-controls="file-panel"
+        aria-controls="side-panel"
         aria-expanded={rightPanelOpen}
         aria-hidden={covered ? true : undefined}
-        title={rightPanelOpen ? translate("files.hidePanel") : translate("files.showPanel")}
-        aria-label={rightPanelOpen ? translate("files.hidePanel") : translate("files.showPanel")}
+        title={rightPanelOpen ? translate("panel.hide") : translate("panel.show")}
+        aria-label={rightPanelOpen ? translate("panel.hide") : translate("panel.show")}
         data-mobile-toolbar-file={mobile ? "true" : undefined}
         style={{
           // The Debug button is right-aligned instead (renderDebugButton); without it, this switch
@@ -2836,7 +2630,6 @@ export function AppShell() {
               onNewSessionChoicesChange={handleNewSessionChoicesChange}
               onAgentEnd={handleAgentEnd}
               onSessionEnded={handleSessionEnded}
-              onToolEnd={handleToolEnd}
               onAttentionNeeded={handleAttentionNeeded}
               onSessionCreated={handleSessionCreated}
               onSessionForked={handleSessionForked}
@@ -2851,8 +2644,6 @@ export function AppShell() {
               onSessionStatsChange={handleSessionStatsChange}
               onSessionStatsPanelOpen={openSessionStatsPanel}
               onContextUsageChange={handleContextUsageChange}
-              onOpenFile={handleOpenLinkedFile}
-              onFilesUploaded={handleExplorerRefresh}
               soundEnabled={soundEnabled}
               onSoundToggle={onSoundToggle}
               playDoneSound={playDoneSound}
@@ -2912,17 +2703,17 @@ export function AppShell() {
         <div
           {...rightPanelResizer.separatorProps}
           inert={rightPanelFullWidth}
-          aria-controls="file-panel"
+          aria-controls="side-panel"
           className={`panel-resize-handle right-panel-resize-handle${rightPanelResizer.isResizing ? " is-resizing" : ""}`}
           data-resize-handle="right-panel"
-          title={`${translate("layout.resizeFilePanel")}: ${translate("layout.resizeHint")}`}
+          title={`${translate("layout.resizePanel")}: ${translate("layout.resizeHint")}`}
         />
       )}
 
       {/* Right panel: file viewer — always mounted, width animated via CSS */}
       <div
         ref={rightPanelResizer.panelRef}
-        id="file-panel"
+        id="side-panel"
         className={`right-panel-container${rightPanelOpen ? " right-panel-open" : " right-panel-closed"}${rightPanelFullWidth ? " right-panel-full-width" : ""}${rightPanelResizer.isResizing ? " right-panel-resizing" : ""}`}
         style={{
           "--right-panel-width": `${rightPanelResizer.width}px`,
@@ -2945,20 +2736,20 @@ export function AppShell() {
           <div style={{ flex: 1, overflow: "hidden" }}>
             <TabBar
               tabs={panelTabs}
-              activeTabId={activeFileTabId ?? ""}
-              onSelectTab={setActiveFileTabId}
-              onCloseTab={handleCloseFileTab}
+              activeTabId={activePanelTabId ?? ""}
+              onSelectTab={setActivePanelTabId}
+              onCloseTab={handleClosePanelTab}
               onReorderTab={(source, target, after) => setPanelTabOrder(movePanelTab(panelTabs.map((tab) => tab.id), source, target, after))}
             />
           </div>
           <button
             type="button"
-            className="file-panel-expand-button"
+            className="side-panel-expand-button"
             onClick={handleRightPanelExpandToggle}
-            aria-controls="file-panel"
+            aria-controls="side-panel"
             aria-pressed={rightPanelFullWidth}
-            title={translate(rightPanelFullWidth ? "files.restorePanelWidth" : "files.expandPanel")}
-            aria-label={translate(rightPanelFullWidth ? "files.restorePanelWidth" : "files.expandPanel")}
+            title={translate(rightPanelFullWidth ? "panel.restoreWidth" : "panel.expand")}
+            aria-label={translate(rightPanelFullWidth ? "panel.restoreWidth" : "panel.expand")}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d={rightPanelFullWidth
@@ -2969,10 +2760,10 @@ export function AppShell() {
           <button
             type="button"
             onClick={() => setRightPanelOpen(false)}
-            aria-controls="file-panel"
+            aria-controls="side-panel"
             aria-expanded={rightPanelOpen}
-            title={translate("files.hidePanel")}
-            aria-label={translate("files.hidePanel")}
+            title={translate("panel.hide")}
+            aria-label={translate("panel.hide")}
             style={{
               display: "flex", alignItems: "center", justifyContent: "center",
               width: TOP_BAR_ICON_BUTTON_SIZE, height: TOP_BAR_ICON_BUTTON_SIZE, padding: 0,
@@ -2988,49 +2779,13 @@ export function AppShell() {
           </button>
         </div>
 
-        {/* Only the active viewer is mounted. Lightweight per-tab state is restored on activation. */}
+        {/* Only the active side chat is mounted. */}
         <div style={{ flex: 1, minHeight: 0, overflow: "hidden", paddingBottom: "env(safe-area-inset-bottom)" }}>
-          {activeFileTab?.filePath ? (
-            <FileViewer
-              key={`${fileWorkspaceGeneration}:${activeFileTab.id}:${activeFileTab.viewerRevision ?? 0}`}
-              filePath={activeFileTab.filePath}
-              cwd={activeCwd ?? undefined}
-              sourceSessionId={activeFileTab.sourceSessionId}
-              gitRefreshKey={explorerRefreshKey}
-              initialDisplayMode={activeFileTab.initialDisplayMode}
-              initialPage={activeFileTab.page}
-              initialState={activeFileTab.viewerState}
-              watchEnabled={rightPanelOpen}
-              onStateChange={(viewerState) => handleFileViewerStateChange(
-                fileWorkspaceGeneration,
-                activeFileTab.id,
-                activeFileTab.viewerRevision ?? 0,
-                viewerState,
-              )}
-              onMentionLines={rightPanelOpen ? handleFileLineMention : undefined}
-              onAtMention={handleAtMention}
-              onOpenFile={(filePath, page) => handleOpenFile(
-                filePath,
-                getFileName(filePath),
-                { sourceSessionId: activeFileTab.sourceSessionId, page },
-              )}
-            />
-          ) : !terminalTabs.some((tab) => tab.id === activeFileTabId) && !activeAgentTab ? (
+          {!activeAgentTab && (
             <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dim)", fontSize: 12 }}>
-               {translate("files.noneOpen")}
+               {translate("panel.noneOpen")}
             </div>
-          ) : null}
-          {terminalTabs.map((tab) => (
-            <div key={tab.id} hidden={tab.id !== activeFileTabId} style={{ width: "100%", height: "100%" }}>
-              <TerminalPanel
-                tab={tab}
-                active={rightPanelOpen && tab.id === activeFileTabId}
-                onRestart={() => setTerminalTabs((tabs) => tabs.map((item) => item.id === tab.id ? { ...item, closing: "restart" } : item))}
-                onClosed={() => handleTerminalClosed(tab)}
-                onCloseError={() => setTerminalTabs((tabs) => tabs.map((item) => item.id === tab.id ? { ...item, closing: undefined } : item))}
-              />
-            </div>
-          ))}
+          )}
           {activeAgentTab && (
             <SessionChatPanel
               key={activeAgentTab.sessionId}
@@ -3045,13 +2800,10 @@ export function AppShell() {
                 return next;
               })}
               modelsRefreshKey={modelsRefreshKey}
-              onOpenFile={handleOpenLinkedFile}
               onSessionForked={(newSessionId, session) => {
                 if (isMobile) setRightPanelOpen(false);
                 handleSessionForked(newSessionId, session);
               }}
-              onToolEnd={handleToolEnd}
-              onFilesUploaded={handleExplorerRefresh}
               soundEnabled={soundEnabled}
               onSoundToggle={onSoundToggle}
               playDoneSound={playDoneSound}
